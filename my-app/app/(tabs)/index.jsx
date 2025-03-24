@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet,  Pressable,TextInput,ImageBackground } from 'react-native'
-import React, {useState} from 'react'
+import React, {useState,useEffect} from 'react'
 import {Link} from 'expo-router'
 
 const app = () => {
-
+  
   return (
     <View style={styles.container}> 
     <ImageBackground source={require('../../assets/images/Bg-img.png')} style={styles.backgroundImage}>
@@ -15,7 +15,6 @@ const app = () => {
      <Link href="/explore" style={styles.GetStartedButton}> 
     <Text style={styles.ButtonText}>Get Started</Text>   
     </Link>
-  
 
    </ImageBackground>
   </View>
