@@ -8,6 +8,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { View, Text, StyleSheet, Image, Pressable, Modal, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { TouchableWithoutFeedback } from 'react-native'; 
 
 
 export default function TabLayout() {
@@ -16,7 +17,7 @@ export default function TabLayout() {
   const [isSidebarVisible, setSidebarVisible] = useState(false);  
 
   //React.useRef(): Creates a mutable reference that persists across re-renders ( store values that shouldn't trigger re-renders when changed)
-  const slideAnim = React.useRef(new Animated.Value(-400)).current;
+  const slideAnim = React.useRef(new Animated.Value(-350)).current;
 
   function Menu() {
     setSidebarVisible(true);
@@ -30,7 +31,7 @@ export default function TabLayout() {
   function onClose() {
     //creates a linear animation with a fixed duration.
     Animated.timing(slideAnim, {
-      toValue: -400, //(hidden again when closing)
+      toValue: -350, //(hidden again when closing)
       duration: 300, //(duration of the animation)
       useNativeDriver: true,
     }).start();
@@ -79,32 +80,60 @@ export default function TabLayout() {
         transparent={true}
         onRequestClose={onClose}
       >
+        {/* closes when we click outside the sideBar*/}
+         <TouchableWithoutFeedback onPress={onClose}> 
         <View style={styles.sidebarContainer}>
+          
+          {/* doesn't close when we click inside the sideBar*/}
+        <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>  
+          
     {/* array of styles with transform that modifies the position and translatX that moves the element horizontally*/}
           <Animated.View style={[styles.sidebarContent, {transform: [{ translateX: slideAnim }]} ]}> 
             <Pressable onPress={onClose} style={styles.closeButton}>
               <Icon name="close" size={30} color="#013220" />
             </Pressable>
+
             <View style={styles.sidebarItems}>
+
               <Pressable style={styles.sidebarItem}>
+                <Icon name="home" size={24} color="#013220" />
+                <Text style={styles.sidebarText}>Home</Text>
+              </Pressable>
+
+              <Pressable style={styles.sidebarItem}>
+              <Image source={require('../../assets/images/Plant.png')}  style={styles.iconPlant}/>
+                <Text style={styles.sidebarText}>Plant Health</Text>
+              </Pressable>
+
+              <Pressable style={styles.sidebarThickItem}>
+              <Image source={require('../../assets/images/greenH.png')}  style={styles.iconPlant}/>
+                <Text style={styles.sidebarText}>Green Houses</Text>
+              </Pressable>
+
+              <Pressable style={styles.sidebarThickItem}>
+              <Image source={require('../../assets/images/Bug.png')}  style={styles.iconPlant}/>
+                <Text style={styles.sidebarText}>Plant diseases</Text>
+              </Pressable>
+
+              <Pressable style={styles.sidebarItem}>
+                <Icon name="account-multiple" size={24} color="#013220" />
+                <Text style={styles.sidebarText}>Manage Users</Text>
+              </Pressable>
+
+              <Pressable style={styles.sidebarThickItem}>
                 <Icon name="account" size={24} color="#013220" />
-                <Text style={styles.sidebarText}>Profile</Text>
+                <Text style={styles.sidebarText}>Account</Text>
               </Pressable>
-              <Pressable style={styles.sidebarItem}>
-                <Icon name="cog" size={24} color="#013220" />
-                <Text style={styles.sidebarText}>Settings</Text>
-              </Pressable>
-              <Pressable style={styles.sidebarItem}>
-                <Icon name="help-circle" size={24} color="#013220" />
-                <Text style={styles.sidebarText}>Help</Text>
-              </Pressable>
+
               <Pressable style={styles.sidebarItem}>
                 <Icon name="logout" size={24} color="#013220" />
-                <Text style={styles.sidebarText}>Logout</Text>
+                <Text style={styles.sidebarText}>log out</Text>
               </Pressable>
             </View>
           </Animated.View>
+          </TouchableWithoutFeedback>
         </View>
+        </TouchableWithoutFeedback>
       </Modal>
     );
   }
@@ -137,7 +166,6 @@ export default function TabLayout() {
             backgroundColor: 'white',
             shadowColor: 'transparent',
             elevation: 0,
-            display:'absolute',
           },
         }),
 
@@ -174,28 +202,28 @@ export default function TabLayout() {
         name="PlantHealth"
         options={{
           title: 'Plants',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          tabBarIcon: ({ color }) =>  <Image source={require('../../assets/images/Plant.png')}  style={styles.iconPlant}/>,
         }}
       />
       <Tabs.Screen
         name="GreenHouses"
         options={{
           title: 'GreenH',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          tabBarIcon: ({ color }) => <Image source={require('../../assets/images/greenH.png')}  style={styles.iconPlant} />,
         }}
       />
        <Tabs.Screen
         name="diseases"
         options={{
           title: 'diseases',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          tabBarIcon: ({ color }) => <Image source={require('../../assets/images/Bug.png')}  style={styles.iconPlant} />,
         }}
       />
        <Tabs.Screen
         name="accounts"
         options={{
-          title: 'accounts',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Account',
+          tabBarIcon: ({ color }) => <Icon name="account" size={28} color={color} />,
         }}
       />
     </Tabs>
@@ -220,7 +248,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 10,
   },
-  
+  iconPlant: {
+    width: 28,
+    height: 28,
+    alignSelf: 'center',
+    resizeMode: 'contain',
+
+  },
   Title: {
     color: '#013220',
     fontSize: 18,
@@ -252,6 +286,13 @@ const styles = StyleSheet.create({
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+  },
+  sidebarThickItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'Black',
   },
   sidebarText: {
     marginLeft: 15,

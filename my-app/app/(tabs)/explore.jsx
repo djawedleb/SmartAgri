@@ -4,6 +4,7 @@ import {Link, router} from 'expo-router'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 const { width, height } = Dimensions.get('window');
 
+
 const app = () => {
 
   // State hooks to store form input data
@@ -39,12 +40,14 @@ const app = () => {
     setIsPasswordVisible(!isPasswordVisible);
   };
 
+
   //to send data to the post method in express//
   const handleSubmit = async (e) => {
     try {
         console.log('Sending request with data:', JSON.stringify(loginData));
-        
-        const response = await fetch('http://192.168.1.2:8080/exploreUser', {  //in cmd: ipconfig /all if you get a connection error//
+      
+       
+        const response = await fetch('http://192.168.1.12:8080/exploreUser', {  //in cmd: ipconfig /all if you get a connection error//
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

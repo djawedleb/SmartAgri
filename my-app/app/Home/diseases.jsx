@@ -3,7 +3,7 @@ import React from 'react'
 
 const diseases = () => {
   return (
-    <View>
+    <View style={{backgroundColor: 'white', }}>
       <Text>diseases</Text>
     </View>
   )

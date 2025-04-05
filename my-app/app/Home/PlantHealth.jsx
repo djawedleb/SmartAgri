@@ -3,7 +3,7 @@ import React from 'react'
 
 const explore = () => {
   return (
-    <View>
+    <View style={{backgroundColor: 'white', }}>
       <Text>explore</Text>
     </View>
   )
