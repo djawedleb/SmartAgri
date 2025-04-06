@@ -47,7 +47,7 @@ const app = () => {
         console.log('Sending request with data:', JSON.stringify(loginData));
       
        
-        const response = await fetch('http://192.168.1.12:8080/exploreUser', {  //in cmd: ipconfig /all if you get a connection error//
+        const response = await fetch('http://192.168.1.8:8080/exploreUser', {  //in cmd: ipconfig /all if you get a connection error//
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
