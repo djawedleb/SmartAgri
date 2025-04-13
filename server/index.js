@@ -78,73 +78,55 @@ app.post("/explore", function(req, res){
   });
     
 
-//API connection with weather forcasts
-
-app.post("/weather",function(req,res){
-
-      //weather app api//
-      const city = "constantine";
-      const url = "https://api.openweathermap.org/data/2.5/weather?q=" + city + "&appid=941d39e27b50a5c115efd835a2377e1a&units=metric";
-      //Makes an HTTP GET request to the OpenWeatherMap API, url2 is the API endpoint URL 
-      // Takes a callback function that runs when the request is made
-      https.get(url,function(response){
-          console.log(response.statusCode);
-   
-          //to make the data from the weather app in json readable format//
-          //This is an event listener for the "data" event ,the API sends data in chunks, and this listens for each chunk
-          //Takes a callback function that processes the received data
-          response.on("data",function(data){
-              const weatherData= JSON.parse(data);
-              console.log(weatherData);
-   
-              res.json({
-                temperature: weatherData.main.temp,
-                description: weatherData.weather[0].description,
-                icon: weatherData.weather[0].icon,
-                iconUrl: "http://openweathermap.org/img/wn/" + weatherData.weather[0].icon + "@2x.png",
-                city: city,
-                humidity: weatherData.main.humidity,
-                windspeed: weatherData.wind.speed,
-                clouds: weatherData.clouds.all,
-            });
-          })
-      })
-})
-
-//Daily 5 days API//
-app.post("/weatherDaily",function(req,res){
-
-const url2 = "https://api.openweathermap.org/data/2.5/forecast?lat=40.7143&lon=-74.006&appid=941d39e27b50a5c115efd835a2377e1a&units=metric";
-let dataChunks = [];
-
-https.get(url2, function(response) {
-
-    console.log("daily weather status" + response.statusCode);
-    
-    response.on("data", function(chunk) {
-      dataChunks.push(chunk);  //Collecting all data chunks, needed this because i got an error in how data is getting received 
-    });
-    
-    response.on("end", function() {  
-
-        const completeData = Buffer.concat(dataChunks).toString();  // Combine them into a string when the response is complete
-        try {
-//[Object] and [Array] are Node.js's way of displaying nested objects in the console. To see the actual data, use JSON.stringify()       
-            const weatherData2 = JSON.parse(completeData);
-            const dailyData = JSON.stringify(weatherData2, null, 2); //just to be able to see data in console
-            // console.log("Complete weather data:", dailyData);
-
-            console.log("Complete weather data:", weatherData2.list[0].main);
-            console.log("Complete weather data:", weatherData2.list[0].weather);
-            console.log("Complete weather data:", weatherData2.list[0].clouds);
-            console.log("Complete weather data:", weatherData2.list[0].wind);
-
-        } catch (error) {
-            console.error("Error parsing JSON:", error);
-        }    
-
-    }); 
-
+// Weather API endpoint
+app.get("/weather", async function(req, res) {
+    try {
+        const location = req.query.location || "London"; // Default to London if no location provided
+        const API_KEY = "279d276787d542e78ae150612250604";
+        
+        const weatherUrl = `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(location)}&days=1&aqi=no&alerts=no`;
+        
+        const response = await fetch(weatherUrl);
+        
+        if (!response.ok) {
+            throw new Error(`Weather API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Process hourly forecast data (next 10 hours)
+        const hourlyForecast = data.forecast.forecastday[0].hour
+            .filter(hour => {
+                const hourTime = new Date(hour.time);
+                const currentTime = new Date();
+                return hourTime >= currentTime;
+            })
+            .slice(0, 10)
+            .map(item => ({
+                time: item.time,
+                temp: Math.round(item.temp_c),
+                condition: item.condition.code,
+                isDay: item.is_day
+            }));
+        
+        res.json({
+            temperature: Math.round(data.current.temp_c),
+            condition: data.current.condition.text,
+            windSpeed: Math.round(data.current.wind_kph),
+            humidity: data.current.humidity,
+            uvIndex: Math.round(data.current.uv),
+            maxUvIndex: 10,
+            conditionCode: data.current.condition.code,
+            isDay: data.current.is_day,
+            locationName: data.location.name,
+            forecast: hourlyForecast
+        });
+    } catch (error) {
+        console.error('Weather API error:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch weather data',
+            message: error.message
+        });
+    }
 });
-   
-}) 
+

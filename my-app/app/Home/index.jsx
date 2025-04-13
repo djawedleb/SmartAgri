@@ -9,10 +9,6 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
   const [error, setError] = useState(null);
   const [location, setLocation] = useState(null);
 
-  // Your WeatherAPI.com API key
-  const API_KEY = "279d276787d542e78ae150612250604";
-  
-  
   const mapConditionToIcon = (code, isDay) => {
     // WeatherAPI condition code mapping to Material icons
     const weatherConditions = {
@@ -69,14 +65,6 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
     return weatherConditions[code] || 'weather-partly-cloudy';
   };
 
-  // Function to convert timestamp to AM/PM format
-  const formatTime = (time) => {
-    const hour = parseInt(time.split(':')[0]);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const formattedHour = hour % 12 || 12;
-    return `${formattedHour} ${ampm}`;
-  };
-
   // Function to get the device's current location
   const getDeviceLocation = async () => {
     try {
@@ -110,7 +98,7 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
     }
   };
 
-  // Function to fetch weather data
+  // Function to fetch weather data from backend
   const fetchWeatherData = async () => {
     if (!location) return;
     
@@ -120,155 +108,46 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
       
       console.log(`Fetching weather for: ${location}`);
       
-      // Use mock data for development/testing or when API is unavailable
-      if (!API_KEY || API_KEY === "YOUR_API_KEY") {
-        console.log("Using mock data (no API key provided)");
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Return mock data this happens if the api dont work
-        setWeatherData({
-          temperature: 35,
-          condition: 'Sunny',
-          windSpeed: 16,
-          humidity: 83,
-          uvIndex: 2,
-          maxUvIndex: 10,
-          icon: 'weather-sunny',
-          locationName: 'Mock City',
-          forecast: [
-            { time: 'Now', temp: 25, icon: 'weather-sunny' },
-            { time: '2 PM', temp: 23, icon: 'weather-sunny' },
-            { time: '4 PM', temp: 21, icon: 'weather-partly-cloudy' },
-            { time: '6 PM', temp: 21, icon: 'weather-partly-cloudy' },
-            { time: '8 PM', temp: 20, icon: 'weather-night' },
-            { time: '6 AM', temp: 21, icon: 'weather-night' },
-            { time: '8 AM', temp: 23, icon: 'weather-partly-cloudy' },
-            { time: '10 AM', temp: 21, icon: 'weather-sunny' },
-            { time: '12 PM', temp: 21, icon: 'weather-sunny' },
-            { time: '2 PM', temp: 20, icon: 'weather-sunny' },
-          ]
-        });
-        
-        setLoading(false);
-        return;
-      }
-      
-      // Get weather data using WeatherAPI.com with improved error handling
-      const weatherUrl = `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(location)}&days=1&aqi=no&alerts=no`;
-      console.log(`API Request URL: ${weatherUrl}`);
-      
-      // Set timeout for fetch request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
-      const response = await fetch(weatherUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      console.log(`API Response Status: ${response.status}`);
+      // Use your computer's IP address instead of localhost
+      const response = await fetch(`http://192.168.1.8:8080/weather?location=${encodeURIComponent(location)}`);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error Response:', errorText);
-        let errorMessage;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error?.message || 'Failed to fetch weather data';
-        } catch (e) {
-          errorMessage = `HTTP Error: ${response.status}`;
-        }
-        throw new Error(errorMessage);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // First get text response to safely parse
-      const responseText = await response.text();
-      console.log('Raw response received, length:', responseText.length);
+      const data = await response.json();
+      console.log('Received weather data:', data);
       
-      // Then parse JSON
-      const data = JSON.parse(responseText);
-      console.log('Weather data successfully parsed');
-      
-      // Process hourly forecast data (next 10 hours)
-      const hourlyForecast = data.forecast.forecastday[0].hour
-        .filter(hour => {
-          const hourTime = new Date(hour.time);
-          const currentTime = new Date();
-          return hourTime >= currentTime;
-        })
-        .slice(0, 10)
-        .map((item, index) => {
-          const hourTime = new Date(item.time);
-          return {
-            time: index === 0 ? 'Now' : formatTime(hourTime.getHours() + ':00'),
-            temp: Math.round(item.temp_c),
-            icon: mapConditionToIcon(item.condition.code, item.is_day),
-          };
-        });
+      if (!data || !data.temperature) {
+        throw new Error('Invalid weather data received');
+      }
       
       // Process the data
       setWeatherData({
-        temperature: Math.round(data.current.temp_c),
-        condition: data.current.condition.text,
-        windSpeed: Math.round(data.current.wind_kph),
-        humidity: data.current.humidity,
-        uvIndex: Math.round(data.current.uv),
-        maxUvIndex: 10,
-        icon: mapConditionToIcon(data.current.condition.code, data.current.is_day),
-        locationName: data.location.name,
-        forecast: hourlyForecast,
+        temperature: data.temperature,
+        condition: data.condition,
+        windSpeed: data.windSpeed,
+        humidity: data.humidity,
+        uvIndex: data.uvIndex,
+        maxUvIndex: data.maxUvIndex,
+        icon: mapConditionToIcon(data.conditionCode, data.isDay),
+        locationName: data.locationName,
+        forecast: data.forecast.map(item => ({
+          time: item.time.split(' ')[1].substring(0, 5), // Format time to HH:MM
+          temp: item.temp,
+          icon: mapConditionToIcon(item.condition, item.isDay)
+        }))
       });
       
       console.log('Weather data processing complete');
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching weather data:', error.name, error.message);
-      
-      let errorMessage = error.message || 'Failed to load weather data. Please try again later.';
-      
-      // Special handling for specific error types
-      if (error.name === 'AbortError') {
-        errorMessage = 'Request timed out. Please check your internet connection.';
-      } else if (error.name === 'TypeError' && error.message.includes('Network request failed')) {
-        errorMessage = 'Network connection error. Please check your internet and permissions.';
-      }
-      
-      setError(errorMessage);
+      console.error('Error fetching weather data:', error);
+      setError(error.message || 'Failed to load weather data. Please try again later.');
       setLoading(false);
       
       // Show error as an alert too for better visibility
-      Alert.alert('Weather Error', errorMessage, [{ text: 'OK' }]);
-      
-      // Fallback to mock data in case of error
-      console.log('Falling back to mock data');
-      setWeatherData({
-        temperature: 35,
-        condition: 'Sunny',
-        windSpeed: 16,
-        humidity: 83,
-        uvIndex: 2,
-        maxUvIndex: 10,
-        icon: 'weather-sunny',
-        locationName: 'Default City',
-        forecast: [
-          { time: 'Now', temp: 25, icon: 'weather-sunny' },
-          { time: '2 PM', temp: 23, icon: 'weather-sunny' },
-          { time: '4 PM', temp: 21, icon: 'weather-partly-cloudy' },
-          { time: '6 PM', temp: 21, icon: 'weather-partly-cloudy' },
-          { time: '8 PM', temp: 20, icon: 'weather-night' },
-          { time: '6 AM', temp: 21, icon: 'weather-night' },
-          { time: '8 AM', temp: 23, icon: 'weather-partly-cloudy' },
-          { time: '10 AM', temp: 21, icon: 'weather-sunny' },
-          { time: '12 PM', temp: 21, icon: 'weather-sunny' },
-          { time: '2 PM', temp: 20, icon: 'weather-sunny' },
-        ]
-      });
+      Alert.alert('Weather Error', error.message || 'Failed to load weather data. Please try again later.', [{ text: 'OK' }]);
     }
   };
 
@@ -323,7 +202,7 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
       <View style={styles.weatherCard}>
         {error && (
           <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>Using demo data - {error}</Text>
+            <Text style={styles.errorBannerText}>{error}</Text>
           </View>
         )}
         
@@ -334,40 +213,44 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
           </Pressable>
         </View>
         
-        <View style={styles.mainWeather}>
-          {renderWeatherIcon()}
-          <View style={styles.temperatureContainer}>
-            <Text style={styles.temperature}>{weatherData?.temperature}°</Text>
-            <Text style={styles.condition}>{weatherData?.condition}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.weatherInfoContainer}>
-          <View style={styles.weatherInfo}>
-            <Icon name="weather-windy" size={24} color="#444" />
-            <Text style={styles.weatherInfoText}>{weatherData?.windSpeed} km/h</Text>
-          </View>
-          
-          <View style={styles.weatherInfo}>
-            <Icon name="water-percent" size={24} color="#444" />
-            <Text style={styles.weatherInfoText}>{weatherData?.humidity} %</Text>
-          </View>
-          
-          <View style={styles.weatherInfo}>
-            <Icon name="sun-wireless" size={24} color="#444" />
-            <Text style={styles.weatherInfoText}>{weatherData?.uvIndex} of {weatherData?.maxUvIndex}</Text>
-          </View>
-        </View>
-        
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.forecastContainer}>
-          {weatherData?.forecast.map((item, index) => (
-            <View key={index} style={styles.forecastItem}>
-              <Text style={styles.forecastTime}>{item.time}</Text>
-              <Icon name={item.icon} size={20} color="#444" style={styles.forecastIcon} />
-              <Text style={styles.forecastTemp}>{item.temp}°</Text>
+        {weatherData && (
+          <>
+            <View style={styles.mainWeather}>
+              {renderWeatherIcon()}
+              <View style={styles.temperatureContainer}>
+                <Text style={styles.temperature}>{weatherData.temperature}°</Text>
+                <Text style={styles.condition}>{weatherData.condition}</Text>
+              </View>
             </View>
-          ))}
-        </ScrollView>
+            
+            <View style={styles.weatherInfoContainer}>
+              <View style={styles.weatherInfo}>
+                <Icon name="weather-windy" size={24} color="#444" />
+                <Text style={styles.weatherInfoText}>{weatherData.windSpeed} km/h</Text>
+              </View>
+              
+              <View style={styles.weatherInfo}>
+                <Icon name="water-percent" size={24} color="#444" />
+                <Text style={styles.weatherInfoText}>{weatherData.humidity} %</Text>
+              </View>
+              
+              <View style={styles.weatherInfo}>
+                <Icon name="sun-wireless" size={24} color="#444" />
+                <Text style={styles.weatherInfoText}>{weatherData.uvIndex} of {weatherData.maxUvIndex}</Text>
+              </View>
+            </View>
+            
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.forecastContainer}>
+              {weatherData.forecast.map((item, index) => (
+                <View key={index} style={styles.forecastItem}>
+                  <Text style={styles.forecastTime}>{item.time}</Text>
+                  <Icon name={item.icon} size={20} color="#444" style={styles.forecastIcon} />
+                  <Text style={styles.forecastTemp}>{item.temp}°</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </>
+        )}
       </View>
     </View>
   );
@@ -376,6 +259,7 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
+    backgroundColor:'white'
   },
   loadingContainer: {
     alignItems: 'center',
