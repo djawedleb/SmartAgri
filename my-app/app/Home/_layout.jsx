@@ -15,6 +15,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   const [isSidebarVisible, setSidebarVisible] = useState(false);  
+  const [isHomeExpanded, setIsHomeExpanded] = useState(false);
 
   //React.useRef(): Creates a mutable reference that persists across re-renders ( store values that shouldn't trigger re-renders when changed)
   const slideAnim = React.useRef(new Animated.Value(-350)).current;
@@ -87,47 +88,65 @@ export default function TabLayout() {
           {/* doesn't close when we click inside the sideBar*/}
         <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>  
           
-    {/* array of styles with transform that modifies the position and translatX that moves the element horizontally*/}
           <Animated.View style={[styles.sidebarContent, {transform: [{ translateX: slideAnim }]} ]}> 
             <Pressable onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={30} color="#013220" />
+              <Icon name="close" size={30} color="#0d986a" />
             </Pressable>
 
             <View style={styles.sidebarItems}>
-
-              <Pressable style={styles.sidebarItem}>
-                <Icon name="home" size={24} color="#013220" />
+              <Pressable 
+                style={styles.sidebarItem} 
+                onPress={() => setIsHomeExpanded(!isHomeExpanded)}
+              >
+                <Icon name="home-outline" size={24} color="#0d986a" />
                 <Text style={styles.sidebarText}>Home</Text>
+                <Icon 
+                  name={isHomeExpanded ? "chevron-down" : "chevron-right"} 
+                  size={24} 
+                  color="#666" 
+                  style={styles.chevron} 
+                />
+              </Pressable>
+
+              {isHomeExpanded && (
+                <View style={styles.submenu}>
+                  <Pressable style={styles.submenuItem}>
+                    <Icon name="sprout" size={20} color="#0d986a" />
+                    <Text style={styles.submenuText}>Plants</Text>
+                  </Pressable>
+                  <Pressable style={styles.submenuItem}>
+                    <Icon name="greenhouse" size={20} color="#0d986a" />
+                    <Text style={styles.submenuText}>GreenH</Text>
+                  </Pressable>
+                  <Pressable style={styles.submenuItem}>
+                    <Icon name="chip" size={20} color="#0d986a" />
+                    <Text style={styles.submenuText}>Sensors</Text>
+                  </Pressable>
+                </View>
+              )}
+
+              <Pressable style={styles.sidebarItem}>
+                <Icon name="brain" size={24} color="#0d986a" />
+                <Text style={styles.sidebarText}>AI Recommendations</Text>
+                <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
               </Pressable>
 
               <Pressable style={styles.sidebarItem}>
-              <Image source={require('../../assets/images/Plant.png')}  style={styles.iconPlant}/>
-                <Text style={styles.sidebarText}>Plant Health</Text>
-              </Pressable>
-
-              <Pressable style={styles.sidebarThickItem}>
-              <Image source={require('../../assets/images/greenH.png')}  style={styles.iconPlant}/>
-                <Text style={styles.sidebarText}>Green Houses</Text>
-              </Pressable>
-
-              <Pressable style={styles.sidebarThickItem}>
-              <Image source={require('../../assets/images/Bug.png')}  style={styles.iconPlant}/>
-                <Text style={styles.sidebarText}>Plant diseases</Text>
-              </Pressable>
-
-              <Pressable style={styles.sidebarItem}>
-                <Icon name="account-multiple" size={24} color="#013220" />
+                <Icon name="account-group-outline" size={24} color="#0d986a" />
                 <Text style={styles.sidebarText}>Manage Users</Text>
-              </Pressable>
-
-              <Pressable style={styles.sidebarThickItem}>
-                <Icon name="account" size={24} color="#013220" />
-                <Text style={styles.sidebarText}>Account</Text>
+                <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
               </Pressable>
 
               <Pressable style={styles.sidebarItem}>
-                <Icon name="logout" size={24} color="#013220" />
-                <Text style={styles.sidebarText}>log out</Text>
+                <Icon name="account-outline" size={24} color="#0d986a" />
+                <Text style={styles.sidebarText}>Account</Text>
+                <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
+              </Pressable>
+
+              <Pressable style={styles.sidebarItem}>
+                <Icon name="logout" size={24} color="#0d986a" />
+                <Text style={styles.sidebarText}>Log out</Text>
+                <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
               </Pressable>
             </View>
           </Animated.View>
@@ -144,15 +163,13 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: true,
         headerTitle: () => <HeaderTitle />,
-        //tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        tabBarActiveTintColor: '#013220',  // Color for selected tab
-        tabBarInactiveTintColor: '#0d986a',  // Color for unselected tabs
+        tabBarActiveTintColor: '#0d986a',  // Updated to match Figma green
+        tabBarInactiveTintColor: '#666',  // Updated to match Figma inactive color
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarLabelStyle: {
-          // Customize label (text) style
-          fontWeight: 'bold', // Bold label for active tab
-          fontSize: 12,       // Customize font size
+          fontWeight: '500',
+          fontSize: 12,
         },
         headerStyle: Platform.select({
           ios: {
@@ -171,7 +188,6 @@ export default function TabLayout() {
 
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
             backgroundColor: 'white',
             position: 'absolute',
             borderTopRightRadius: 20,
@@ -187,43 +203,34 @@ export default function TabLayout() {
             height: 60,
             borderwidth: 0.4,
           },
-          
         }),
-
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <Icon name="home-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="PlantHealth"
         options={{
           title: 'Plants',
-          tabBarIcon: ({ color }) =>  <Image source={require('../../assets/images/Plant.png')}  style={styles.iconPlant}/>,
+          tabBarIcon: ({ color }) => <Icon name="sprout" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="GreenHouses"
         options={{
           title: 'GreenH',
-          tabBarIcon: ({ color }) => <Image source={require('../../assets/images/greenH.png')}  style={styles.iconPlant} />,
+          tabBarIcon: ({ color }) => <Icon name="greenhouse" size={24} color={color} />,
         }}
       />
-       <Tabs.Screen
-        name="diseases"
+      <Tabs.Screen
+        name="Sensors"
         options={{
-          title: 'diseases',
-          tabBarIcon: ({ color }) => <Image source={require('../../assets/images/Bug.png')}  style={styles.iconPlant} />,
-        }}
-      />
-       <Tabs.Screen
-        name="accounts"
-        options={{
-          title: 'Account',
-          tabBarIcon: ({ color }) => <Icon name="account" size={28} color={color} />,
+          title: 'Sensors',
+          tabBarIcon: ({ color }) => <Icon name="chip" size={24} color={color} />,
         }}
       />
     </Tabs>
@@ -283,21 +290,32 @@ const styles = StyleSheet.create({
   sidebarItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  sidebarThickItem: {
+  sidebarText: {
+    marginLeft: 12,
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  chevron: {
+    marginLeft: 'auto',
+  },
+  submenu: {
+    paddingLeft: 20,
+    backgroundColor: '#f9f9f9',
+  },
+  submenuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'Black',
+    padding: 12,
+    paddingLeft: 35,
   },
-  sidebarText: {
-    marginLeft: 15,
-    fontSize: 16,
-    color: '#013220',
+  submenuText: {
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#333',
   },
-  
 })
