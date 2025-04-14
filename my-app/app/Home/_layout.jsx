@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React, {useState, useEffect} from 'react';
 import { Platform } from 'react-native';
 import { HapticTab } from '@/components/HapticTab';
@@ -13,6 +13,7 @@ import { TouchableWithoutFeedback } from 'react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
 
   const [isSidebarVisible, setSidebarVisible] = useState(false);  
   const [isHomeExpanded, setIsHomeExpanded] = useState(false);
@@ -74,6 +75,11 @@ export default function TabLayout() {
 
 
   function Sidebar({ isVisible, onClose }) {
+    const handleAiRecommendations = () => {
+      onClose();
+      router.push('/Home/AiRecommendations');
+    };
+
     return (
       <Modal
         visible={isVisible}
@@ -116,20 +122,21 @@ export default function TabLayout() {
                   </Pressable>
                   <Pressable style={styles.submenuItem}>
                     <Icon name="greenhouse" size={20} color="#0d986a" />
-                    <Text style={styles.submenuText}>GreenH</Text>
+                    <Text style={styles.submenuText}>GreenHouses</Text>
                   </Pressable>
                   <Pressable style={styles.submenuItem}>
                     <Icon name="chip" size={20} color="#0d986a" />
                     <Text style={styles.submenuText}>Sensors</Text>
                   </Pressable>
+                  <Pressable 
+                    style={styles.submenuItem}
+                    onPress={handleAiRecommendations}
+                  >
+                    <Icon name="brain" size={20} color="#0d986a" />
+                    <Text style={styles.submenuText}>AI Recommendations</Text>
+                  </Pressable>
                 </View>
               )}
-
-              <Pressable style={styles.sidebarItem}>
-                <Icon name="brain" size={24} color="#0d986a" />
-                <Text style={styles.sidebarText}>AI Recommendations</Text>
-                <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
-              </Pressable>
 
               <Pressable style={styles.sidebarItem}>
                 <Icon name="account-group-outline" size={24} color="#0d986a" />
@@ -192,45 +199,61 @@ export default function TabLayout() {
             position: 'absolute',
             borderTopRightRadius: 20,
             borderTopLeftRadius: 20,
-            height: 60,
+            height: 45,
             borderwidth: 0.4,
+            paddingBottom: 0,
+            paddingTop: 0,
           },
           default: {
             backgroundColor: 'white',
             position: 'absolute',
             borderTopRightRadius: 20,
             borderTopLeftRadius: 20,
-            height: 60,
+            height: 55,
             borderwidth: 0.4,
+            paddingBottom: 0,
+            paddingTop: 0,
           },
         }),
+        tabBarItemStyle: {
+          height: 55,
+          paddingBottom: 0,
+          paddingTop: 0,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <Icon name="home-outline" size={24} color={color} />,
+          title: '',
+          tabBarIcon: ({ color }) => <Icon name="home-outline" size={30} color={color} />,
         }}
       />
       <Tabs.Screen
         name="PlantHealth"
         options={{
-          title: 'Plants',
-          tabBarIcon: ({ color }) => <Icon name="sprout" size={24} color={color} />,
+          title: '',
+          tabBarIcon: ({ color }) => <Icon name="sprout" size={30} color={color} />,
         }}
       />
       <Tabs.Screen
         name="GreenHouses"
         options={{
-          title: 'GreenH',
-          tabBarIcon: ({ color }) => <Icon name="greenhouse" size={24} color={color} />,
+          title: '',
+          tabBarIcon: ({ color }) => <Icon name="greenhouse" size={30} color={color} />,
         }}
       />
       <Tabs.Screen
         name="Sensors"
         options={{
-          title: 'Sensors',
-          tabBarIcon: ({ color }) => <Icon name="chip" size={24} color={color} />,
+          title: '',
+          tabBarIcon: ({ color }) => <Icon name="chip" size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="AiRecommendations"
+        options={{
+          title: '',
+          tabBarIcon: ({ color }) => <Icon name="brain" size={28} color={color} />,
         }}
       />
     </Tabs>
