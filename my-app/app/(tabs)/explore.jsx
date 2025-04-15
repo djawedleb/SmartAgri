@@ -1,7 +1,8 @@
-import { View, Text, Image, StyleSheet, Pressable, TextInput, ImageBackground, Dimensions, SafeAreaView } from 'react-native'
+import { View, Text, Image, StyleSheet, Pressable, TextInput, ImageBackground, Dimensions, SafeAreaView, ScrollView, ActivityIndicator, Alert } from 'react-native'
 import React, {useState, useEffect} from 'react'
 import {Link, router} from 'expo-router'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { getBaseUrl } from '../../config';
 const { width, height } = Dimensions.get('window');
 
 
@@ -46,8 +47,8 @@ const app = () => {
     try {
         console.log('Sending request with data:', JSON.stringify(loginData));
       
-       
-        const response = await fetch('http://192.168.1.8:8080/exploreUser', {  //in cmd: ipconfig /all if you get a connection error//
+        const baseUrl = getBaseUrl();
+        const response = await fetch(`${baseUrl}/exploreUser`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

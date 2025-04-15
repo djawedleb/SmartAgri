@@ -80,6 +80,21 @@ export default function TabLayout() {
       router.push('/Home/AiRecommendations');
     };
 
+    const handleManageUsers = () => {
+      onClose();
+      router.push('/Home/ManageUsers');
+    };
+
+    const handleNavigation = (route) => {
+      onClose();
+      router.push(route);
+    };
+
+    const handleHome = () => {
+      onClose();
+      router.push('/Home/');
+    };
+
     return (
       <Modal
         visible={isVisible}
@@ -100,31 +115,47 @@ export default function TabLayout() {
             </Pressable>
 
             <View style={styles.sidebarItems}>
-              <Pressable 
-                style={styles.sidebarItem} 
-                onPress={() => setIsHomeExpanded(!isHomeExpanded)}
-              >
-                <Icon name="home-outline" size={24} color="#0d986a" />
-                <Text style={styles.sidebarText}>Home</Text>
-                <Icon 
-                  name={isHomeExpanded ? "chevron-down" : "chevron-right"} 
-                  size={24} 
-                  color="#666" 
-                  style={styles.chevron} 
-                />
-              </Pressable>
+              <View style={styles.sidebarItem}>
+                <Pressable 
+                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                  onPress={handleHome}
+                >
+                  <Icon name="home-outline" size={24} color="#0d986a" />
+                  <Text style={styles.sidebarText}>Home</Text>
+                </Pressable>
+                <Pressable onPress={(e) => {
+                  e.stopPropagation();
+                  setIsHomeExpanded(!isHomeExpanded);
+                }}>
+                  <Icon 
+                    name={isHomeExpanded ? "chevron-down" : "chevron-right"} 
+                    size={24} 
+                    color="#666" 
+                    style={styles.chevron} 
+                  />
+                </Pressable>
+              </View>
 
               {isHomeExpanded && (
                 <View style={styles.submenu}>
-                  <Pressable style={styles.submenuItem}>
+                  <Pressable 
+                    style={styles.submenuItem}
+                    onPress={() => handleNavigation('/Home/PlantHealth')}
+                  >
                     <Icon name="sprout" size={20} color="#0d986a" />
                     <Text style={styles.submenuText}>Plants</Text>
                   </Pressable>
-                  <Pressable style={styles.submenuItem}>
+                  <Pressable 
+                    style={styles.submenuItem}
+                    onPress={() => handleNavigation('/Home/GreenHouses')}
+                  >
                     <Icon name="greenhouse" size={20} color="#0d986a" />
                     <Text style={styles.submenuText}>GreenHouses</Text>
                   </Pressable>
-                  <Pressable style={styles.submenuItem}>
+                  <Pressable 
+                    style={styles.submenuItem}
+                    onPress={() => handleNavigation('/Home/Sensors')}
+                  >
                     <Icon name="chip" size={20} color="#0d986a" />
                     <Text style={styles.submenuText}>Sensors</Text>
                   </Pressable>
@@ -138,19 +169,28 @@ export default function TabLayout() {
                 </View>
               )}
 
-              <Pressable style={styles.sidebarItem}>
+              <Pressable 
+                style={styles.sidebarItem}
+                onPress={handleManageUsers}
+              >
                 <Icon name="account-group-outline" size={24} color="#0d986a" />
                 <Text style={styles.sidebarText}>Manage Users</Text>
                 <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
               </Pressable>
 
-              <Pressable style={styles.sidebarItem}>
+              <Pressable 
+                style={styles.sidebarItem}
+                onPress={() => handleNavigation('/Home/Account')}
+              >
                 <Icon name="account-outline" size={24} color="#0d986a" />
                 <Text style={styles.sidebarText}>Account</Text>
                 <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
               </Pressable>
 
-              <Pressable style={styles.sidebarItem}>
+              <Pressable 
+                style={styles.sidebarItem}
+                onPress={() => handleNavigation('/')}
+              >
                 <Icon name="logout" size={24} color="#0d986a" />
                 <Text style={styles.sidebarText}>Log out</Text>
                 <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
@@ -170,8 +210,8 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: true,
         headerTitle: () => <HeaderTitle />,
-        tabBarActiveTintColor: '#0d986a',  // Updated to match Figma green
-        tabBarInactiveTintColor: '#666',  // Updated to match Figma inactive color
+        tabBarActiveTintColor: '#0d986a',
+        tabBarInactiveTintColor: '#666',
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarLabelStyle: {
@@ -192,7 +232,6 @@ export default function TabLayout() {
             elevation: 0,
           },
         }),
-
         tabBarStyle: Platform.select({
           ios: {
             backgroundColor: 'white',
@@ -254,6 +293,14 @@ export default function TabLayout() {
         options={{
           title: '',
           tabBarIcon: ({ color }) => <Icon name="brain" size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="ManageUsers"
+        options={{
+          title: '',
+          tabBarStyle: { display: 'none' },
+          tabBarButton: () => null,
         }}
       />
     </Tabs>

@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert
 import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import * as Location from 'expo-location';
+import { getBaseUrl } from '../../config';
 
 const WeatherCard = ({ defaultLocation = "London" }) => {
   const [weatherData, setWeatherData] = useState(null);
@@ -108,8 +109,8 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
       
       console.log(`Fetching weather for: ${location}`);
       
-      // Use your computer's IP address instead of localhost
-      const response = await fetch(`http://192.168.1.8:8080/weather?location=${encodeURIComponent(location)}`);
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/weather?location=${encodeURIComponent(location)}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
