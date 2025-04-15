@@ -259,12 +259,14 @@ const WeatherCard = ({ defaultLocation = "London" }) => {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor:'white'
+    backgroundColor: 'white',
+    flex: 1
   },
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     height: 300,
+    backgroundColor: 'white'
   },
   loadingText: {
     marginTop: 10,

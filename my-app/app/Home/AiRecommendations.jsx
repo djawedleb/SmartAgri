@@ -1,11 +1,42 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import React, { useState } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import * as DocumentPicker from 'expo-document-picker';
 
 export default function AiRecommendations() {
   const [analyzing, setAnalyzing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleFileSelect = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+      });
+      
+      if (result.canceled) {
+        return;
+      }
+
+      const file = result.assets[0];
+      
+      if (file.size > 100 * 1024) { // 100KB in bytes
+        alert('File size must be less than 100KB');
+        return;
+      }
+      
+      setSelectedFile(file);
+      setAnalyzing(false);
+    } catch (err) {
+      console.error('Error picking file:', err);
+    }
+  };
 
   const handleAnalyze = () => {
+    if (!selectedFile) {
+      alert('Please select a file first');
+      return;
+    }
     setAnalyzing(true);
     // Add your AI analysis logic here
   };
@@ -16,10 +47,12 @@ export default function AiRecommendations() {
         <Text style={styles.uploadText}>Please upload size less than 100KB</Text>
         <View style={styles.uploadArea}>
           <Icon name="image-outline" size={40} color="#666" />
-          <Pressable style={styles.chooseButton}>
+          <Pressable style={styles.chooseButton} onPress={handleFileSelect}>
             <Text style={styles.chooseButtonText}>Choose File</Text>
           </Pressable>
-          <Text style={styles.imageText}>[image1]</Text>
+          <Text style={styles.imageText}>
+            {selectedFile ? selectedFile.name : '[image1]'}
+          </Text>
         </View>
       </View>
 
@@ -30,17 +63,17 @@ export default function AiRecommendations() {
         <Text style={styles.analyzeButtonText}>suggest fixes</Text>
       </Pressable>
 
-      {analyzing && (
-        <View style={styles.analyzerSection}>
-          <View style={styles.analyzerHeader}>
-            <Icon name="brain" size={24} color="#0d986a" />
-            <Text style={styles.analyzerTitle}>AI Analyser</Text>
-          </View>
-          <View style={styles.analyzerContent}>
-            <Text style={styles.waitingText}>Please wait ...</Text>
-          </View>
+      <View style={styles.analyzerSection}>
+        <View style={styles.analyzerHeader}>
+          <Icon name="brain" size={24} color="#0d986a" />
+          <Text style={styles.analyzerTitle}>AI Analyser</Text>
         </View>
-      )}
+        <View style={styles.analyzerContent}>
+          <Text style={styles.waitingText}>
+            {analyzing ? 'Please wait ...' : 'Upload an image and click suggest fixes to analyze'}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
