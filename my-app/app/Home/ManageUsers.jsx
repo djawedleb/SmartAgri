@@ -4,17 +4,20 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getBaseUrl } from '../../config';
 
 const ManageUsers = () => {
-  const [isModalVisible, setModalVisible] = useState(false);
-  
-  const [newUser, setNewUser] = useState({
+  const [isModalVisible, setModalVisible] = useState(false); //for the add/edit popup
+  const [editingUser, setEditingUser] = useState(null); //so we can know when we are editing
+  const [usersPersonal, setUsersPersonal] = useState([]); //to display the user saved data
+    
+  const [newUser, setNewUser] = useState({  //to save the new user data
     username: '',
     email: '',
     password: '',
     role: 'farmer' // Default role
   });
 
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState([]); //to get and display all the saved users
 
+  //to display the added users
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -30,6 +33,8 @@ const ManageUsers = () => {
     fetchUsers();
   }, [users]);
 
+
+  //To save in the database
   const handleSubmit = async (e) => {
     // Validate inputs
     if (!newUser.username || !newUser.email || !newUser.password) {
@@ -37,13 +42,16 @@ const ManageUsers = () => {
       return;
     }
 
-  e.preventDefault();
-  try {
+    e.preventDefault();
+    try {
       const baseUrl = getBaseUrl();
-      const response = await fetch(`${baseUrl}/AddUser`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json',},
-          body: JSON.stringify(newUser),
+      const url = editingUser
+        ? `${baseUrl}/updateUser/${editingUser._id}`
+        : `${baseUrl}/AddUser`;
+      const response = await fetch(url, {
+        method: editingUser ? 'PUT' : 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(newUser),
       });
 
       if (!response.ok) {
@@ -59,6 +67,70 @@ const ManageUsers = () => {
   }
 };
 
+//Too delete a user from the database and the interface
+const handleDelete = async (id) => {
+
+  //Actual deletion from the database//
+   const Deletion = async () => {
+     try {
+         const baseUrl = getBaseUrl();
+         const response = await fetch(`${baseUrl}/deleteUser`, {
+             method: 'POST',
+             headers: {'Content-Type': 'application/json',},
+             body: JSON.stringify({ id }), 
+         });
+
+         if (!response.ok) {
+             console.error('Network response was not ok:', response.statusText);
+             throw new Error('Network response was not ok');
+         }
+         const result = await response.json();
+         //console.log(result);
+
+     } catch (error) {
+         console.error('There was an error!', error);
+     }
+ };
+   Deletion();
+
+ }
+
+
+// so we can showcase the user data and edit it then save it in the handleSubmit
+ const handleEdit = async (id) => {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/PersonalData/${id}`);
+    if (!res.ok) throw new Error(res.statusText);
+    const user = await res.json();
+    console.log('Loaded for edit:', user);
+    setNewUser({
+      username: user.username,
+      email: user.email,
+      password: user.password,
+      role: user.role,
+    });
+    setEditingUser({ _id: id, ...user }); // include id so updateUser URL is correct
+    setModalVisible(true);
+  } catch (error) {
+    console.error('Error fetching personal data:', error);
+  }
+};
+
+//to display accounts data
+const account = async (id) => {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/PersonalData/${id}`);
+    if (!res.ok) throw new Error(res.statusText);
+    const user = await res.json();
+    setUsersPersonal(user);
+    console.log('Loaded for edit:', usersPersonal);
+  } catch (error) {
+    console.error('Error fetching personal data:', error);
+  }
+};
+
 function caller(e){
   handleSubmit(e);
   ResetHook(e);
@@ -71,6 +143,7 @@ function ResetHook(event) {
     password: '',
     role: 'farmer'
   });
+  setEditingUser(null);
   setModalVisible(false);
 
 }
@@ -100,17 +173,19 @@ function ResetHook(event) {
           {users.map(user => (
             <View key={user._id} style={styles.userCard}>
               <View style={styles.userInfo}>
+              <Pressable style={styles.actionButton} onPress={() => account(user._id)}>
                 <Icon name="account-circle" size={40} color="#0d986a" />
+                </Pressable>
                 <View style={styles.userDetails}>
                   <Text style={styles.userName}>{user.UserName}</Text>
                   <Text style={styles.userRole}>{user.Role}</Text>
                 </View>
               </View>
               <View style={styles.userActions}>
-                <Pressable style={styles.actionButton}>
+                <Pressable style={styles.actionButton} onPress={() => handleEdit(user._id)}>
                   <Icon name="pencil" size={24} color="#0d986a" />
                 </Pressable>
-                <Pressable style={styles.actionButton}>
+                <Pressable style={styles.actionButton} onPress={() => handleDelete(user._id)}>
                   <Icon name="delete" size={24} color="#ff4444" />
                 </Pressable>
               </View>
@@ -123,9 +198,9 @@ function ResetHook(event) {
           style={styles.addButton}
           onPress={() => setModalVisible(true)}
         >
-          <Icon name="plus" size={24} color="white" />
-          <Text style={styles.addButtonText}>Add New User</Text>
-        </Pressable>
+            <Icon name="plus" size={24} color="white" />
+            <Text style={styles.addButtonText}>Add New User</Text>
+          </Pressable>
 
         {/* Add User Modal */}
         <Modal
@@ -137,7 +212,9 @@ function ResetHook(event) {
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add New User</Text>
+                <Text style={styles.modalTitle}>
+                  {editingUser ? 'Edit User' : 'Add New User'}
+                </Text>
                 <Pressable onPress={() => setModalVisible(false)}>
                   <Icon name="close" size={24} color="#666" />
                 </Pressable>
@@ -171,7 +248,7 @@ function ResetHook(event) {
                   placeholder="Enter password"
                   value={newUser.password}
                   onChangeText={(text) => setNewUser({...newUser, password: text})}
-                  secureTextEntry
+                  secureTextEntry={!editingUser}  //so the password shows when editing
                 />
               </View>
 
@@ -200,7 +277,9 @@ function ResetHook(event) {
               </View>
 
               <Pressable style={styles.submitButton} onPress={caller}>
-                <Text style={styles.submitButtonText}>Add User</Text>
+                <Text style={styles.submitButtonText}>
+                  {editingUser ? 'Save Changes' : 'Add User'}
+                </Text>
               </Pressable>
             </View>
           </View>

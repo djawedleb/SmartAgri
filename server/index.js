@@ -40,7 +40,7 @@ const loginSchema = new mongoose.Schema({
   
   const User = moongoose.model("User", AddUserSchema);
 
-// to search user
+// to search the user and allow him to login, from the explore page handlesubmit function
 app.post("/exploreUser", async function(req, res){
     try {
         const {UserName, Password} = req.body;
@@ -61,6 +61,8 @@ app.post("/exploreUser", async function(req, res){
     }
 });
 
+
+// the endpoint to add a new user from ManageUsers handlesubmit function
 app.post("/AddUser", function(req, res){
     console.log(req.body);
     const AddedUser = req.body;
@@ -73,6 +75,7 @@ app.post("/AddUser", function(req, res){
       NewUser.save(); //saving it to the DB of users//
 
       const NewLogin = new login({
+        _id: NewUser._id, //sharing the id so when we delete a user he can't login once again
         UserName : AddedUser.username, 
         Password : AddedUser.password,
     })
@@ -81,7 +84,7 @@ app.post("/AddUser", function(req, res){
     });
 
 
-    // Endpoint to get all users
+    // Endpoint to get all users from ManageUsers page UseEffect
    app.get("/GetUsers", async (req, res) => {
     try {
       const users = await User.find({});
@@ -91,6 +94,66 @@ app.post("/AddUser", function(req, res){
       res.status(500).json({ error: 'Server error' });
     }
   });
+
+  // Endpoint to delete a user from ManageUsers handleDelete function
+  app.post("/deleteUser", function(req, res){
+    const { id } =req.body; 
+    console.log(id);
+    async function Delete() {
+      try {
+        const deletedUser = await User.findByIdAndDelete(id); // Delete by ID from Users dataBase
+        const deletedLogin = await login.findByIdAndDelete(id); // Delete by ID from logins dataBase
+        if (!deletedUser || !deletedLogin) {
+          return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json({ message: 'User deleted successfully' });
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({ message: "Error deleting user", error: error.message });
+      }
+    }
+       Delete();
+    });
+
+
+ //endpoint to return User data called from ManageUsers account, handleEdit functions
+ app.get('/PersonalData/:id', async (req, res) => {
+    try {
+      const u = await User.findById(req.params.id);
+      if (!u) return res.status(404).send('Not found');
+      res.json({
+        username: u.UserName,
+        email:    u.email,
+        password: u.Password,
+        role:     u.Role
+      });
+    } catch(e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+     
+     // Endpoint to update a user from ManageUsers handleSumit function
+     app.put("/updateUser/:id", async (req, res) => {
+        const { id } = req.params;
+        const { username, email, password, role } = req.body;
+        try {
+          const updatedUser = await User.findByIdAndUpdate(
+            id,
+            { UserName: username, email: email, Password: password, Role: role },
+            { new: true }
+          );
+          await login.findByIdAndUpdate(
+            id,
+            { UserName: username, Password: password }
+          );
+          res.json({ message: "User updated", user: updatedUser });
+        } catch (err) {
+          console.error("Error updating user:", err);
+          res.status(500).json({ error: err.message });
+        }
+      });
+
 
 //getting the login data then passing it to SmartAgri database for debugging//
 app.post("/explore", function(req, res){
@@ -168,5 +231,3 @@ app.get("/weather", async function(req, res) {
         });
     }
 });
-
-
