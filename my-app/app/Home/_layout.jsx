@@ -252,6 +252,7 @@ export default function TabLayout() {
             borderwidth: 0.4,
             paddingBottom: 0,
             paddingTop: 0,
+            
           },
         }),
         tabBarItemStyle: {
@@ -295,14 +296,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Icon name="brain" size={28} color={color} />,
         }}
       />
-      <Tabs.Screen
+        <Tabs.Screen
         name="ManageUsers"
         options={{
           title: '',
-          tabBarStyle: { display: 'none' },
-          tabBarButton: () => null,
+          href: null,
         }}
       />
+      
     </Tabs>
 
     <Sidebar isVisible={isSidebarVisible} onClose={onClose} />

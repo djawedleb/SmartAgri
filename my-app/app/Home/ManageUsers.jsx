@@ -1,9 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { getBaseUrl } from '../../config';
 
 const ManageUsers = () => {
   const [isModalVisible, setModalVisible] = useState(false);
+  
   const [newUser, setNewUser] = useState({
     username: '',
     email: '',
@@ -11,25 +13,67 @@ const ManageUsers = () => {
     role: 'farmer' // Default role
   });
 
-  const handleAddUser = () => {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const baseUrl = getBaseUrl();
+        const response = await fetch(`${baseUrl}/GetUsers`);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        setUsers(data);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
+    fetchUsers();
+  }, [users]);
+
+  const handleSubmit = async (e) => {
     // Validate inputs
     if (!newUser.username || !newUser.email || !newUser.password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    // Here you would typically send the data to your backend
-    console.log('New user data:', newUser);
+  e.preventDefault();
+  try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/AddUser`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json',},
+          body: JSON.stringify(newUser),
+      });
+
+      if (!response.ok) {
+          console.error('Network response was not ok:', response.statusText);
+          throw new Error('Network response was not ok');
+      }
+      const result = await response.json();
     
-    // Reset form and close modal
-    setNewUser({
-      username: '',
-      email: '',
-      password: '',
-      role: 'farmer'
-    });
-    setModalVisible(false);
-  };
+
+      //console.log(result);
+  } catch (error) {
+      console.error('There was an error!', error);
+  }
+};
+
+function caller(e){
+  handleSubmit(e);
+  ResetHook(e);
+}
+
+function ResetHook(event) {
+  setNewUser({
+    username: '',
+    email: '',
+    password: '',
+    role: 'farmer'
+  });
+  setModalVisible(false);
+
+}
 
   return (
     <View style={styles.container}>
@@ -37,29 +81,41 @@ const ManageUsers = () => {
         <Text style={styles.title}>Manage Users</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 }}>
         {/* User List */}
-        <View style={styles.userList}>
-          {/* Example User Card */}
-          <View style={styles.userCard}>
-            <View style={styles.userInfo}>
-              <Icon name="account-circle" size={40} color="#0d986a" />
-              <View style={styles.userDetails}>
-                <Text style={styles.userName}>John Doe</Text>
-                <Text style={styles.userRole}>Administrator</Text>
+
+      {/* Default Administrator */}
+      <View style={styles.userList}>
+        <View key="default" style={styles.userCard}>
+          <View style={styles.userInfo}>
+          <Icon name="account-circle" size={40} color="#0d986a" />
+          <View style={styles.userDetails}>
+         <Text style={styles.userName}>John Doe</Text>
+        <Text style={styles.userRole}>Administrator</Text>
+        </View>
+      </View>
+       </View>
+
+      {/* all Users */}
+          {users.map(user => (
+            <View key={user._id} style={styles.userCard}>
+              <View style={styles.userInfo}>
+                <Icon name="account-circle" size={40} color="#0d986a" />
+                <View style={styles.userDetails}>
+                  <Text style={styles.userName}>{user.UserName}</Text>
+                  <Text style={styles.userRole}>{user.Role}</Text>
+                </View>
+              </View>
+              <View style={styles.userActions}>
+                <Pressable style={styles.actionButton}>
+                  <Icon name="pencil" size={24} color="#0d986a" />
+                </Pressable>
+                <Pressable style={styles.actionButton}>
+                  <Icon name="delete" size={24} color="#ff4444" />
+                </Pressable>
               </View>
             </View>
-            <View style={styles.userActions}>
-              <Pressable style={styles.actionButton}>
-                <Icon name="pencil" size={24} color="#0d986a" />
-              </Pressable>
-              <Pressable style={styles.actionButton}>
-                <Icon name="delete" size={24} color="#ff4444" />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Add more user cards here */}
+          ))}
         </View>
 
         {/* Add User Button */}
@@ -129,10 +185,7 @@ const ManageUsers = () => {
                     ]}
                     onPress={() => setNewUser({...newUser, role: 'farmer'})}
                   >
-                    <Text style={[
-                      styles.roleText,
-                      newUser.role === 'farmer' && styles.selectedRoleText
-                    ]}>Farmer</Text>
+                    <Text>Farmer</Text>
                   </Pressable>
                   <Pressable
                     style={[
@@ -141,15 +194,12 @@ const ManageUsers = () => {
                     ]}
                     onPress={() => setNewUser({...newUser, role: 'technicien'})}
                   >
-                    <Text style={[
-                      styles.roleText,
-                      newUser.role === 'technicien' && styles.selectedRoleText
-                    ]}>Technicien</Text>
+                    <Text >Technicien</Text>
                   </Pressable>
                 </View>
               </View>
 
-              <Pressable style={styles.submitButton} onPress={handleAddUser}>
+              <Pressable style={styles.submitButton} onPress={caller}>
                 <Text style={styles.submitButtonText}>Add User</Text>
               </Pressable>
             </View>

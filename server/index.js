@@ -31,6 +31,15 @@ const loginSchema = new mongoose.Schema({
 
   const login = moongoose.model("login", loginSchema);
 
+  const AddUserSchema = new mongoose.Schema({
+    UserName: String,
+    email: String,
+    Password: String,
+    Role: String
+  });
+  
+  const User = moongoose.model("User", AddUserSchema);
+
 // to search user
 app.post("/exploreUser", async function(req, res){
     try {
@@ -52,8 +61,38 @@ app.post("/exploreUser", async function(req, res){
     }
 });
 
+app.post("/AddUser", function(req, res){
+    console.log(req.body);
+    const AddedUser = req.body;
+      const NewUser = new User({
+          UserName : AddedUser.username, 
+          email : AddedUser.email,
+          Password : AddedUser.password,
+          Role : AddedUser.role
+      })
+      NewUser.save(); //saving it to the DB of users//
 
-//getting the login data then passing it to SmartAgri database//
+      const NewLogin = new login({
+        UserName : AddedUser.username, 
+        Password : AddedUser.password,
+    })
+      NewLogin.save(); //saving it to the DB of logins//
+      console.log("item saved successfully");
+    });
+
+
+    // Endpoint to get all users
+   app.get("/GetUsers", async (req, res) => {
+    try {
+      const users = await User.find({});
+      res.json(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+//getting the login data then passing it to SmartAgri database for debugging//
 app.post("/explore", function(req, res){
     console.log(req.body);
     const typeditem = req.body;
@@ -129,4 +168,5 @@ app.get("/weather", async function(req, res) {
         });
     }
 });
+
 
