@@ -40,7 +40,7 @@ const loginSchema = new mongoose.Schema({
   
   const User = moongoose.model("User", AddUserSchema);
 
-// to search the user and allow him to login, from the explore page handlesubmit function
+// to search the user and allow him to login, from the explore page handlesubmit function//
 app.post("/exploreUser", async function(req, res){
     try {
         const {UserName, Password} = req.body;
@@ -62,7 +62,7 @@ app.post("/exploreUser", async function(req, res){
 });
 
 
-// the endpoint to add a new user from ManageUsers handlesubmit function
+// the endpoint to add a new user from ManageUsers handlesubmit function//
 app.post("/AddUser", function(req, res){
     console.log(req.body);
     const AddedUser = req.body;
@@ -133,7 +133,7 @@ app.post("/AddUser", function(req, res){
   });
 
      
-     // Endpoint to update a user from ManageUsers handleSumit function
+     // Endpoint to update a user from ManageUsers handleSubmit function
      app.put("/updateUser/:id", async (req, res) => {
         const { id } = req.params;
         const { username, email, password, role } = req.body;

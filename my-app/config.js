@@ -5,7 +5,7 @@ export const getBaseUrl = () => {
     // In development, we'll use the local network IP
     // You can find this by running 'ipconfig' on Windows or 'ifconfig' on Mac/Linux
     // For now, we'll use a placeholder that you can replace with your actual IP
-    return 'https://3863-105-110-242-26.ngrok-free.app';
+    return 'https://586d-41-201-211-156.ngrok-free.app ';
   }
   
   // For production, use your production server URL
