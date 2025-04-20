@@ -1,20 +1,84 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Modal, Alert, Platform } from 'react-native';
-import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Modal, Alert, Platform, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 const GreenHouses = () => {
-  const router = useRouter();
   const [selectedGreenhouse, setSelectedGreenhouse] = useState(null);
-  const [activeTab, setActiveTab] = useState('All');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 0,
+    longitude: 0,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+  const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     location: '',
-    description: '',
     image: null,
+    coordinates: null
   });
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showResults, setShowResults] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required to select greenhouse location');
+        return;
+      }
+
+      let currentLocation = await Location.getCurrentPositionAsync({});
+      setMapRegion({
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+    })();
+  }, []);
+
+  const handleMapPress = (e) => {
+    const { coordinate } = e.nativeEvent;
+    setSelectedLocation(coordinate);
+    setFormData(prev => ({
+      ...prev,
+      coordinates: coordinate,
+      location: `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`
+    }));
+  };
+
+  const handleLocationSelect = (result) => {
+    const newRegion = {
+      latitude: parseFloat(result.lat),
+      longitude: parseFloat(result.lon),
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+    setMapRegion(newRegion);
+    setSelectedLocation({
+      latitude: parseFloat(result.lat),
+      longitude: parseFloat(result.lon),
+    });
+    setFormData(prev => ({
+      ...prev,
+      coordinates: {
+        latitude: parseFloat(result.lat),
+        longitude: parseFloat(result.lon),
+      },
+      location: `${result.lat}, ${result.lon}`
+    }));
+    setShowResults(false);
+    setSearchQuery(result.display_name);
+  };
 
   const greenhouses = [
     {
@@ -46,7 +110,6 @@ const GreenHouses = () => {
       id: 1,
       name: 'Echeveria',
       image: 'https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797',
-      rating: 5.0,
       size: '3 inch'
     },
     {
@@ -57,9 +120,9 @@ const GreenHouses = () => {
       size: '5 inch'
     }
   ];
-
-  const tabs = ['All', 'Cacti', 'In pots', 'Dried flowers'];
-
+  // hdou mb3d nchoufouo ida ndirouhoum tahoum tabs li kanou t7t plants section fl greenhouse view
+  // const tabs = ['All', 'Cacti', 'In pots', 'Dried flowers'];
+  // greenhouses cards
   const renderReadings = (greenhouse) => (
     <View style={styles.readingsContainer}>
       <View style={styles.readingItem}>
@@ -81,6 +144,7 @@ const GreenHouses = () => {
     </View>
   );
 
+  // plants cards li fl greenhouse view
   const renderPlantCard = (plant) => (
     <TouchableOpacity key={plant.id} style={styles.plantCard}>
       <Image 
@@ -90,34 +154,39 @@ const GreenHouses = () => {
       <View style={styles.plantInfo}>
         <View style={styles.plantHeader}>
           <Text style={styles.plantName}>{plant.name}</Text>
-          <TouchableOpacity style={styles.favoriteButton}>
-            <Icon name="heart-outline" size={20} color="#666" />
-          </TouchableOpacity>
         </View>
         <View style={styles.plantDetails}>
           <Text style={styles.plantSize}>From {plant.size}</Text>
-          <View style={styles.ratingContainer}>
-            <Icon name="star" size={16} color="#FFD700" />
-            <Text style={styles.ratingText}>{plant.rating}</Text>
-          </View>
         </View>
       </View>
     </TouchableOpacity>
   );
 
+  // map card li fl greenhouse view 
   const renderPropertyCard = (greenhouse) => (
     <View style={styles.propertyCard}>
       <View style={styles.mapContainer}>
-        <Image 
-          source={{ uri: 'https://maps.googleapis.com/maps/api/staticmap?center=40.7128,-74.0060&zoom=15&size=400x200&maptype=satellite&key=YOUR_API_KEY' }}
-          style={styles.mapImage}
-        />
+        <MapView
+          style={styles.map}
+          region={{
+            latitude: greenhouse.location.lat,
+            longitude: greenhouse.location.lng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.2,
+          }}
+          scrollEnabled={false}
+        >
+          <Marker
+            coordinate={{
+              latitude: greenhouse.location.lat,
+              longitude: greenhouse.location.lng,
+            }}
+            title={greenhouse.name}
+          />
+        </MapView>
         <View style={styles.mapOverlay}>
           <Text style={styles.mapTitle}>{greenhouse.name}</Text>
           <Text style={styles.mapSubtitle}>{greenhouse.owner}</Text>
-        </View>
-        <View style={styles.temperatureTag}>
-          <Text style={styles.temperatureText}>32°C</Text>
         </View>
       </View>
     </View>
@@ -156,52 +225,185 @@ const GreenHouses = () => {
   };
 
   const handleAdd = () => {
-    if (selectedGreenhouse) {
-      // Adding a plant
-      if (!formData.name.trim()) {
-        Alert.alert('Error', 'Please enter a plant name');
-        return;
-      }
-      // Here you would typically make an API call to add the plant
-      Alert.alert('Success', `Added new plant "${formData.name}" to ${selectedGreenhouse.name}`);
-    } else {
-      // Adding a greenhouse
-      if (!formData.name.trim()) {
-        Alert.alert('Error', 'Please enter a greenhouse name');
-        return;
-      }
-      if (!formData.location.trim()) {
-        Alert.alert('Error', 'Please enter a location');
-        return;
-      }
-      // Here you would typically make an API call to add the greenhouse
-      Alert.alert('Success', `Created new greenhouse "${formData.name}"`);
+    if (!formData.name.trim()) {
+      Alert.alert('Error', 'Please enter a greenhouse name');
+      return;
     }
+    if (!formData.location.trim()) {
+      Alert.alert('Error', 'Please select a location');
+      return;
+    }
+    // Here you would typically make an API call to add/update the greenhouse
+    Alert.alert('Success', isEditMode ? 
+      `Updated greenhouse "${formData.name}"` : 
+      `Created new greenhouse "${formData.name}"`
+    );
     setFormData({
       name: '',
       location: '',
-      description: '',
       image: null,
+      coordinates: null
     });
     setIsModalVisible(false);
+    setIsEditMode(false);
   };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`,
+        {
+          headers: {
+            'User-Agent': 'SmartAgri/1.0',
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setSearchResults(data);
+      setShowResults(isSearchFocused);
+    } catch (error) {
+      console.error('Search error:', error);
+      Alert.alert('Error', 'Failed to search for locations');
+    }
+  };
+
+  const renderMapModal = () => (
+    <Modal
+      visible={showMapModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowMapModal(false)}
+    >
+      <View style={styles.mapModalContainer}>
+        <View style={styles.mapModalContent}>
+          <View style={styles.mapModalHeader}>
+            <Text style={styles.mapModalTitle}>Select Location</Text>
+            <TouchableOpacity
+              onPress={() => setShowMapModal(false)}
+              style={styles.closeButton}
+            >
+              <Icon name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search for a location..."
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                if (text.trim()) {
+                  handleSearch();
+                } else {
+                  setSearchResults([]);
+                  setShowResults(false);
+                }
+              }}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => {
+                setIsSearchFocused(false);
+                setShowResults(false);
+              }}
+            />
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={handleSearch}
+            >
+              <Icon name="magnify" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          {showResults && isSearchFocused && searchResults.length > 0 && (
+            <View style={styles.resultsContainer}>
+              <ScrollView style={styles.resultsList}>
+                {searchResults.map((result, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.resultItem}
+                    onPress={() => {
+                      handleLocationSelect(result);
+                      setIsSearchFocused(false);
+                      setShowResults(false);
+                    }}
+                  >
+                    <Text style={styles.resultText}>{result.display_name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          <View style={styles.mapContainer}>
+            <MapView
+              style={styles.map}
+              region={mapRegion}
+              onPress={handleMapPress}
+            >
+              {selectedLocation && (
+                <Marker
+                  coordinate={selectedLocation}
+                  title="Selected Location"
+                />
+              )}
+            </MapView>
+          </View>
+          <TouchableOpacity
+            style={styles.selectLocationButton}
+            onPress={() => {
+              setShowMapModal(false);
+            }}
+          >
+            <Text style={styles.selectLocationButtonText}>Select Location</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const renderModal = () => (
     <Modal
       animationType="slide"
       transparent={true}
       visible={isModalVisible}
-      onRequestClose={() => setIsModalVisible(false)}
+      onRequestClose={() => {
+        setIsModalVisible(false);
+        setIsEditMode(false);
+        setFormData({
+          name: '',
+          location: '',
+          image: null,
+          coordinates: null
+        });
+      }}
     >
       <View style={styles.modalOverlay}>
         <ScrollView>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {selectedGreenhouse ? 'Add New Plant' : 'Add New Greenhouse'}
+                {isEditMode ? 'Modify Greenhouse' : 'Add New Greenhouse'}
               </Text>
               <TouchableOpacity
-                onPress={() => setIsModalVisible(false)}
+                onPress={() => {
+                  setIsModalVisible(false);
+                  setIsEditMode(false);
+                  setFormData({
+                    name: '',
+                    location: '',
+                    image: null,
+                    coordinates: null
+                  });
+                }}
                 style={styles.closeButton}
               >
                 <Icon name="close" size={24} color="#666" />
@@ -241,41 +443,30 @@ const GreenHouses = () => {
             <Text style={styles.inputLabel}>Name *</Text>
             <TextInput
               style={styles.input}
-              placeholder={selectedGreenhouse ? "Enter plant name" : "Enter greenhouse name"}
+              placeholder="Enter greenhouse name"
               value={formData.name}
               onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
             />
 
-            {!selectedGreenhouse && (
-              <>
-                {/* Location Input */}
-                <Text style={styles.inputLabel}>Location *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter location"
-                  value={formData.location}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, location: text }))}
-                />
-              </>
-            )}
-
-            {/* Description Input */}
-            <Text style={styles.inputLabel}>Description</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Enter description"
-              value={formData.description}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
+            {/* Location Input */}
+            <Text style={styles.inputLabel}>Location *</Text>
+            <TouchableOpacity
+              style={styles.locationInput}
+              onPress={() => setShowMapModal(true)}
+            >
+              <Icon name="map-marker" size={20} color="#0d986a" />
+              <Text style={styles.locationText}>
+                {formData.location || 'Select location on map'}
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.submitButton}
               onPress={handleAdd}
             >
-              <Text style={styles.submitButtonText}>Add</Text>
+              <Text style={styles.submitButtonText}>
+                {isEditMode ? 'Save Changes' : 'Add Greenhouse'}
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -297,11 +488,15 @@ const GreenHouses = () => {
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => {
+                setIsEditMode(true);
                 setFormData({
                   name: greenhouse.name,
-                  location: greenhouse.location,
-                  description: greenhouse.description || '',
+                  location: `${greenhouse.location.lat}, ${greenhouse.location.lng}`,
                   image: greenhouse.image,
+                  coordinates: {
+                    latitude: greenhouse.location.lat,
+                    longitude: greenhouse.location.lng
+                  }
                 });
                 setIsModalVisible(true);
               }}
@@ -368,7 +563,7 @@ const GreenHouses = () => {
 
             <Text style={styles.sectionTitle}>Plants</Text>
             
-            <ScrollView 
+            {/* <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
               style={styles.tabsContainer}
@@ -388,12 +583,7 @@ const GreenHouses = () => {
                   ]}>{tab}</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
-
-            <View style={styles.sortContainer}>
-              <Text style={styles.sortLabel}>Popularity</Text>
-              <Icon name="chevron-down" size={20} color="#666" />
-            </View>
+            </ScrollView> */}
 
             {plants.map(renderPlantCard)}
 
@@ -403,14 +593,17 @@ const GreenHouses = () => {
         )}
       </ScrollView>
 
-      <TouchableOpacity 
-        style={styles.addButton}
-        onPress={() => setIsModalVisible(true)}
-      >
-        <Icon name="plus" size={24} color="#fff" />
-      </TouchableOpacity>
+      {!selectedGreenhouse && (
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setIsModalVisible(true)}
+        >
+          <Icon name="plus" size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {renderModal()}
+      {renderMapModal()}
     </View>
   );
 };
@@ -597,16 +790,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   mapContainer: {
-    height: 200,
-    position: 'relative',
-  },
-  mapImage: {
+    flex: 1,
     width: '100%',
-    height: '100%',
+    height: 300,
+  },
+  map: {
+    flex: 1,
+    width: '100%',
   },
   mapOverlay: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
     padding: 16,
@@ -742,6 +936,126 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  mapModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  mapModalContent: {
+    height: '60%',
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  mapModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  mapModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  selectLocationButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: '#0d986a',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    elevation: 4,
+  },
+  selectLocationButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  locationInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  locationText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+  },
+  coordinatesContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+  },
+  coordinatesText: {
+    fontSize: 14,
+    color: '#333',
+    marginVertical: 2,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: 'transparent',
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 8,
+    fontSize: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  searchButton: {
+    width: 50,
+    height: 50,
+    backgroundColor: 'rgba(255, 255, 255, 1)',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  resultsContainer: {
+    position: 'absolute',
+    top: 120,
+    left: 0,
+    right: 0,
+    maxHeight: 200,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    elevation: 5,
+    zIndex: 2,
+  },
+  resultsList: {
+    maxHeight: 200,
+  },
+  resultItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  resultText: {
+    fontSize: 14,
+    color: '#333',
   },
 });
 

@@ -59,9 +59,6 @@ const Account = () => {
         </View>
         <Text style={styles.userName}>David Weber</Text>
         <Text style={styles.userDate}>3 January 1984</Text>
-        <TouchableOpacity style={styles.editButton}>
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Menu Items */}
