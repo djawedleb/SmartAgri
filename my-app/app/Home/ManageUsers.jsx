@@ -33,6 +33,7 @@ const ManageUsers = () => {
     fetchUsers();
   }, [users]);
 
+  
 
   //To save in the database
   const handleSubmit = async (e) => {
@@ -95,6 +96,28 @@ const handleDelete = async (id) => {
 
  }
 
+ //to confirm delete
+ const Confirm = async (id) => {
+     Alert.alert(
+       'Delete User',
+       'Are you sure you want to delete this user?',
+       [
+         {
+           text: 'Cancel',
+           style: 'cancel', //cancel action
+         },
+         {
+           text: 'delete',
+           style: 'destructive',
+           onPress: () => {
+             handleDelete(id); // Call the delete function
+           },
+         },
+       ],
+       { cancelable: true } //makes the alert dialog dismissible by tapping outside of it.
+     );
+   };
+ 
 
 // so we can showcase the user data and edit it then save it in the handleSubmit
  const handleEdit = async (id) => {
@@ -185,7 +208,7 @@ function ResetHook(event) {
                 <Pressable style={styles.actionButton} onPress={() => handleEdit(user._id)}>
                   <Icon name="pencil" size={24} color="#0d986a" />
                 </Pressable>
-                <Pressable style={styles.actionButton} onPress={() => handleDelete(user._id)}>
+                <Pressable style={styles.actionButton} onPress={() => Confirm(user._id)}>
                   <Icon name="delete" size={24} color="#ff4444" />
                 </Pressable>
               </View>

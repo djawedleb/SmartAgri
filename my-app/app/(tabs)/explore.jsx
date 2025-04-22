@@ -3,19 +3,19 @@ import React, {useState, useEffect} from 'react'
 import {Link, router} from 'expo-router'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getBaseUrl } from '../../config';
+import { LoginDataProvider, useLoginData } from '../context/LoginDataContext';
 const { width, height } = Dimensions.get('window');
 
 
-const app = () => {
+const ExploreContent = () => {
 
-  // State hooks to store form input data
-  const [Username, setUsername] = useState('');
-  const [password, setpassword] = useState('');
-
-  const [loginData, setLoginData] = useState({
+  /* const [loginData, setLoginData] = useState({
     UserName: "",
     Password: "",
-  });
+  }); 
+  */
+
+  const { loginData, setLoginData } = useLoginData();
 
   function ResetHook(){
     setLoginData({
@@ -120,7 +120,8 @@ const app = () => {
               />
             </Pressable>
         </SafeAreaView>
-        
+      
+
       <Pressable style={styles.SignUpButton}  onPress={handleSubmit}>
       <Text style={styles.ButtonText}>Log in</Text>
       </Pressable>
@@ -133,7 +134,13 @@ const app = () => {
   )
 }
 
-export default app
+export default function Explore() {
+  return (
+    <LoginDataProvider>
+      <ExploreContent />
+    </LoginDataProvider>
+  );
+}
 
 const styles = StyleSheet.create({
   container : {

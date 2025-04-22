@@ -1,25 +1,29 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, TextInput } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import * as DocumentPicker from 'expo-document-picker';
+import { getBaseUrl } from '../../config';
 
 const PlantHealth = () => {
-  const [selectedPlant, setSelectedPlant] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newPlant, setNewPlant] = useState({
+  const [selectedPlant, setSelectedPlant] = useState(null); //to have the data of a selected plant when editing, deleting, or viewing details
+  const [showDetails, setShowDetails] = useState(false); //triggers the plant details modal
+  const [showEditModal, setShowEditModal] = useState(false); //triggers the edit plant modal
+  const [showAddModal, setShowAddModal] = useState(false); //triggers the add plant modal, when clicking the plus icon it becomes true
+  const [SavedPlants, setSavedPlants] = useState([]); //to get and display all the saved plants
+
+  const [newPlant, setNewPlant] = useState({  //a hook to store the new plant data
     name: '',
     greenhouse: '',
     image: null,
     readings: {
-      light: '35-45%',
-      temperature: '25-27°C',
-      humidity: '80%',
-      water: '250ml'
+      light: '',
+      temperature: '',
+      humidity: '',
+      water: ''
     }
   });
 
+  //Mock data for greenhouse sensor readings
   const [greenhouseData, setGreenhouseData] = useState({
     'GreenHouse 1': {
       light: '35-45%',
@@ -30,66 +34,86 @@ const PlantHealth = () => {
     'GreenHouse 2': {
       light: '40-45%',
       temperature: '23-25°C',
-      humidity: '80%',
+      humidity: '70%',
       water: '150ml'
     }
   });
 
-  const greenhouses = [
+  //static data for the plants, to be replaced with data from the database
+  const plants = [
     {
       id: 1,
-      name: 'Strawberry',
-      greenhouse: 'GreenHouse 1',
+      Name: 'Potatoes',
+      Greenhouse: 'GreenHouse 1',
       status: 'healthy',
-      image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655',
-      readings: {
-        light: '35-45%',
-        temperature: '25-27°C',
-        humidity: '80%',
-        water: '250ml'
-      }
-    },
-    {
-      id: 2,
-      name: 'Blackberry',
-      greenhouse: 'GreenHouse 2',
-      status: 'healthy',
-      image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655',
-      readings: {
-        light: '40-45%',
-        temperature: '23-25°C',
-        humidity: '80%',
-        water: '150ml'
-      }
+      Image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655',
     }
   ];
 
+  //to display the added users
+  useEffect(() => {
+    refreshPlants();
+  }, []);
+
   const handleViewDetails = (plant) => {
     setSelectedPlant(plant);
+    //console.log(selectedPlant);
     setShowDetails(true);
   };
 
-  const handleRemovePlant = (plant) => {
+
+  //when deleting a plant,also show an alert to confirm the action
+  const handleRemovePlant = async (id) => {
     Alert.alert(
-      'Remove Plant',
-      `Are you sure you want to remove ${plant.name}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement remove functionality
-            Alert.alert('Success', 'Plant removed successfully');
-            setShowDetails(false);
-          },
-        },
-      ],
-    );
+          'Delete User',
+          'Are you sure you want to delete this user?',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel', //cancel action
+            },
+            {
+              text: 'delete',
+              style: 'destructive',
+              onPress: () => {
+                handleDelete(id); // Call the delete function
+              },
+            },
+          ],
+          { cancelable: true } //makes the alert dialog dismissible by tapping outside of it.
+        );
   };
+
+  //Too delete a user from the database and the interface
+  const handleDelete = async (id) => {
+  
+    //Actual deletion from the database//
+     const Deletion = async () => {
+       try {
+           const baseUrl = getBaseUrl();
+           const response = await fetch(`${baseUrl}/DeletePlant`, {
+               method: 'POST',
+               headers: {'Content-Type': 'application/json',},
+               body: JSON.stringify({ id }), 
+           });
+  
+           if (!response.ok) {
+               console.error('Network response was not ok:', response.statusText);
+               throw new Error('Network response was not ok');
+           }
+           const result = await response.json();
+          //Alert.alert('Success', 'Plant Removed successfully');
+           // Refresh the plant list after Removing
+           setShowDetails(false);
+           refreshPlants();
+  
+       } catch (error) {
+           console.error('There was an error!', error);
+       }
+   };
+     Deletion();
+  
+   }
 
   const handleImageSelect = async () => {
     try {
@@ -102,43 +126,125 @@ const PlantHealth = () => {
         setNewPlant(prev => ({
           ...prev,
           image: result.uri
-        }));
-      }
+        }
+      ));
+      //console.log('Selected image:', newPlant.image);
+    }
+
     } catch (error) {
       Alert.alert('Error', 'Failed to select image');
     }
   };
 
+  //changing plant(greenhouse and readings) data when selecting a greenhouse
   const handleGreenhouseSelect = (house) => {
     setNewPlant(prev => ({
       ...prev,
       greenhouse: house,
       readings: greenhouseData[house]
     }));
+    setSelectedPlant(prev => ({
+      ...prev,
+      Greenhouse: house,
+      readings: greenhouseData[house]
+    }));
+    
   };
 
-  const handleAddPlant = () => {
+  // Function to refresh the plant list
+  const refreshPlants = async () => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/GetPlants`);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const data = await response.json();
+      console.log(data);
+      setSavedPlants([...plants, ...data]); //spreads and combines both arrays
+    } catch (error) {
+      console.error('Error refreshing plants:', error);
+    }
+  };
+
+   // Function to handle adding a new plant
+  const handleAddPlant = async () => {
     if (!newPlant.name || !newPlant.greenhouse) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    // TODO: Implement actual API call to add plant
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/AddPlant`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(newPlant),
+      });
+
+      if (!response.ok) {
+          console.error('Network response was not ok:', response.statusText);
+          throw new Error('Network response was not ok');
+      }
+      const result = await response.json();
+  
+    console.log('New plant data:', newPlant); // Log the new plant data for debugging
     Alert.alert('Success', 'Plant added successfully');
     setShowAddModal(false);
-    setNewPlant({
+    setNewPlant({  //to reset the hook after adding a new plant
       name: '',
       greenhouse: '',
       image: null,
       readings: {
-        light: '35-45%',
-        temperature: '25-27°C',
-        humidity: '80%',
-        water: '250ml'
+        light: '',
+        temperature: '',
+        humidity: '',
+        water: ''
       }
     });
+    // Refresh the plant list after adding
+    refreshPlants();
+  } catch (error) {
+      console.error('There was an error!', error);
+  }
   };
 
+
+//when editing a plant, also show an alert to confirm the action
+const handleEditPlant = (plant) => {
+  setSelectedPlant(plant);
+  //console.log(selectedPlant);
+  setShowEditModal(true);
+};
+
+
+  // so we can showcase the user data and edit it then save it in the handleSubmit
+  const handleEdit = async () => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/updatePlant/${selectedPlant._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: selectedPlant.Name,
+          greenhouse: selectedPlant.Greenhouse,
+          image: selectedPlant.Image
+        })
+      });
+  
+      if (!response.ok) throw new Error('Failed to update plant');
+
+      Alert.alert('Success', 'Plant updated successfully');
+      setShowEditModal(false);
+      if(showDetails===false){
+        setSelectedPlant(null);
+      }
+      refreshPlants();
+    } catch (error) {
+      console.error('Error updating plant:', error);
+      Alert.alert('Error', 'Failed to update plant');
+    }
+  };
+
+  // Render the details modal with plant information when clicking on View Details button
   const renderDetailsModal = () => (
     <Modal
       visible={showDetails}
@@ -159,7 +265,7 @@ const PlantHealth = () => {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.modalActionButton}
-                onPress={() => handleRemovePlant(selectedPlant)}
+                onPress={() => handleRemovePlant(selectedPlant._id)}
               >
                 <Icon name="delete" size={24} color="#ff4444" />
               </TouchableOpacity>
@@ -173,12 +279,12 @@ const PlantHealth = () => {
             <>
               <View style={styles.detailsHeader}>
                 <Image 
-                  source={{ uri: selectedPlant.image }} 
+                  source={{ uri: selectedPlant.Image }} 
                   style={styles.detailsImage}
                 />
                 <View style={styles.detailsInfo}>
-                  <Text style={styles.detailsName}>{selectedPlant.name}</Text>
-                  <Text style={styles.detailsGreenhouse}>{selectedPlant.greenhouse}</Text>
+                  <Text style={styles.detailsName}>{selectedPlant.Name}</Text>
+                  <Text style={styles.detailsGreenhouse}>{selectedPlant.Greenhouse}</Text>
                   <View style={styles.detailsStatus}>
                     <Icon name="leaf" size={16} color="#0d986a" />
                     <Text style={styles.detailsStatusText}>Healthy</Text>
@@ -189,10 +295,10 @@ const PlantHealth = () => {
               <View style={styles.detailsReadings}>
                 <Text style={styles.detailsSectionTitle}>Current Readings</Text>
                 <View style={styles.detailsGrid}>
-                  {renderReadingItem('white-balance-sunny', selectedPlant.readings.light, 'Light')}
-                  {renderReadingItem('thermometer', selectedPlant.readings.temperature, 'Temperature')}
-                  {renderReadingItem('water-percent', selectedPlant.readings.humidity, 'Humidity')}
-                  {renderReadingItem('water', selectedPlant.readings.water, 'Water')}
+                  {renderReadingItem('white-balance-sunny', greenhouseData[selectedPlant.Greenhouse]?.light || 'N/A', 'Light')}
+                  {renderReadingItem('thermometer', greenhouseData[selectedPlant.Greenhouse]?.temperature || 'N/A', 'Temperature')}
+                  {renderReadingItem('water-percent', greenhouseData[selectedPlant.Greenhouse]?.humidity || 'N/A', 'Humidity')}
+                  {renderReadingItem('water', greenhouseData[selectedPlant.Greenhouse]?.water || 'N/A', 'Water')}
                 </View>
               </View>
 
@@ -218,6 +324,7 @@ const PlantHealth = () => {
     </Modal>
   );
 
+  // Render the edit modal for updating plant information when clicking the pencil icon
   const renderEditModal = () => (
     <Modal
       visible={showEditModal}
@@ -247,19 +354,19 @@ const PlantHealth = () => {
               >
                 <Icon name="image-plus" size={24} color="#666" />
                 <Text style={styles.imagePickerText}>
-                  {selectedPlant?.image ? 'Change Image' : 'Choose Image'}
+                  {selectedPlant?.Image ? 'Change Image' : 'Choose Image'}
                 </Text>
               </TouchableOpacity>
-              {selectedPlant?.image && (
+              {selectedPlant?.Image && (
                 <View style={styles.selectedImageContainer}>
                   <Image 
-                    source={{ uri: selectedPlant.image }} 
+                    source={{ uri: selectedPlant.Image }} 
                     style={styles.selectedImage} 
                     resizeMode="cover"
                   />
                   <TouchableOpacity
                     style={styles.removeImageButton}
-                    onPress={() => setSelectedPlant(prev => ({ ...prev, image: null }))}
+                    onPress={() => setSelectedPlant(prev => ({ ...prev, Image: null }))}
                   >
                     <Icon name="close-circle" size={24} color="#FF4444" />
                   </TouchableOpacity>
@@ -272,8 +379,8 @@ const PlantHealth = () => {
             <TextInput
               style={styles.input}
               placeholder="Enter plant name"
-              value={selectedPlant?.name}
-              onChangeText={(text) => setSelectedPlant(prev => ({ ...prev, name: text }))}
+              value={selectedPlant?.Name}
+              onChangeText={(text) => setSelectedPlant(prev => ({ ...prev, Name: text }))}
             />
 
             {/* Greenhouse Selection */}
@@ -284,13 +391,13 @@ const PlantHealth = () => {
                   key={house}
                   style={[
                     styles.greenhouseOption,
-                    selectedPlant?.greenhouse === house && styles.greenhouseOptionSelected
+                    selectedPlant?.Greenhouse === house && styles.greenhouseOptionSelected
                   ]}
                   onPress={() => handleGreenhouseSelect(house)}
                 >
                   <Text style={[
                     styles.greenhouseOptionText,
-                    selectedPlant?.greenhouse === house && styles.greenhouseOptionTextSelected
+                    selectedPlant?.Greenhouse === house && styles.greenhouseOptionTextSelected
                   ]}>
                     {house}
                   </Text>
@@ -299,7 +406,7 @@ const PlantHealth = () => {
             </View>
 
             {/* Sensor Data Display */}
-            {selectedPlant?.greenhouse && (
+            {selectedPlant?.Greenhouse && (
               <View style={styles.sensorDataContainer}>
                 <Text style={styles.sensorDataTitle}>Sensor Readings</Text>
                 <View style={styles.sensorDataGrid}>
@@ -308,13 +415,13 @@ const PlantHealth = () => {
                       <View style={styles.sensorIconWrapper}>
                         <Icon name="white-balance-sunny" size={18} color="#0d986a" />
                       </View>
-                      <Text style={styles.sensorValue}>{selectedPlant.readings.light}</Text>
+                      <Text style={styles.sensorValue}>{greenhouseData[selectedPlant.Greenhouse]?.light || 'N/A'}</Text>
                     </View>
                     <View style={styles.sensorItem}>
                       <View style={styles.sensorIconWrapper}>
                         <Icon name="thermometer" size={18} color="#0d986a" />
                       </View>
-                      <Text style={styles.sensorValue}>{selectedPlant.readings.temperature}</Text>
+                      <Text style={styles.sensorValue}>{greenhouseData[selectedPlant.Greenhouse]?.temperature || 'N/A'}</Text>
                     </View>
                   </View>
                   <View style={styles.sensorRow}>
@@ -322,13 +429,13 @@ const PlantHealth = () => {
                       <View style={styles.sensorIconWrapper}>
                         <Icon name="water-percent" size={18} color="#0d986a" />
                       </View>
-                      <Text style={styles.sensorValue}>{selectedPlant.readings.humidity}</Text>
+                      <Text style={styles.sensorValue}>{greenhouseData[selectedPlant.Greenhouse]?.humidity || 'N/A'}</Text>
                     </View>
                     <View style={styles.sensorItem}>
                       <View style={styles.sensorIconWrapper}>
                         <Icon name="water" size={18} color="#0d986a" />
                       </View>
-                      <Text style={styles.sensorValue}>{selectedPlant.readings.water}</Text>
+                      <Text style={styles.sensorValue}>{greenhouseData[selectedPlant.Greenhouse]?.water || 'N/A'}</Text>
                     </View>
                   </View>
                 </View>
@@ -339,8 +446,8 @@ const PlantHealth = () => {
               style={styles.submitButton}
               onPress={() => {
                 // TODO: Implement save functionality
-                Alert.alert('Success', 'Plant updated successfully');
-                setShowEditModal(false);
+                handleEdit();
+                //setShowEditModal(false);
               }}
             >
               <Text style={styles.submitButtonText}>Save Changes</Text>
@@ -351,6 +458,7 @@ const PlantHealth = () => {
     </Modal>
   );
 
+  // Render the sensor data for the selected plant
   const renderSensorData = () => {
     if (!newPlant.greenhouse) return null;
 
@@ -391,9 +499,10 @@ const PlantHealth = () => {
     );
   };
 
+  // Render the add modal for adding a new plant when clicking the plus icon
   const renderAddModal = () => (
     <Modal
-      visible={showAddModal}
+      visible={showAddModal} 
       animationType="slide"
       transparent={true}
       onRequestClose={() => setShowAddModal(false)}
@@ -497,7 +606,8 @@ const PlantHealth = () => {
       </View>
     </View>
   );
-
+  
+  //Main page component
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -512,16 +622,16 @@ const PlantHealth = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {greenhouses.map((greenhouse) => (
-          <View key={greenhouse.id} style={styles.card}>
+        {SavedPlants.map((plant) => ( // for each plant in the savedPlants array, render a card
+          <View key={`${plant.Name}-${plant.Greenhouse}`} style={styles.card}>
             <View style={styles.cardHeader}>
               <Image 
-                source={{ uri: greenhouse.image }} 
+                source={{ uri: plant.Image }} 
                 style={styles.plantImage}
               />
               <View style={styles.plantInfo}>
-                <Text style={styles.plantName}>{greenhouse.name}</Text>
-                <Text style={styles.greenhouseName}>{greenhouse.greenhouse}</Text>
+                <Text style={styles.plantName}>{plant.Name}</Text>
+                <Text style={styles.greenhouseName}>{plant.Greenhouse}</Text>
                 <View style={styles.statusContainer}>
                   <Icon name="leaf" size={16} color="#0d986a" />
                   <Text style={styles.statusText}>Healthy</Text>
@@ -530,13 +640,13 @@ const PlantHealth = () => {
               <View style={styles.cardHeaderActions}>
                 <TouchableOpacity 
                   style={styles.editButton}
-                  onPress={() => setShowEditModal(true)}
+                  onPress={() => handleEditPlant(plant)}
                 >
                   <Icon name="pencil" size={20} color="#0d986a" />
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.removeButton}
-                  onPress={() => handleRemovePlant(greenhouse)}
+                  onPress={() => handleRemovePlant(plant._id)}
                 >
                   <Icon name="delete" size={20} color="#ff4444" />
                 </TouchableOpacity>
@@ -544,10 +654,10 @@ const PlantHealth = () => {
             </View>
 
             <View style={styles.readingsGrid}>
-              {renderReadingItem('white-balance-sunny', greenhouse.readings.light, 'Light')}
-              {renderReadingItem('thermometer', greenhouse.readings.temperature, 'Temperature')}
-              {renderReadingItem('water-percent', greenhouse.readings.humidity, 'Humidity')}
-              {renderReadingItem('water', greenhouse.readings.water, 'Water')}
+              {renderReadingItem('white-balance-sunny', greenhouseData[plant.Greenhouse]?.light || 'N/A', 'Light')}
+              {renderReadingItem('thermometer', greenhouseData[plant.Greenhouse]?.temperature || 'N/A', 'Temperature')}
+              {renderReadingItem('water-percent', greenhouseData[plant.Greenhouse]?.humidity || 'N/A', 'Humidity')}
+              {renderReadingItem('water', greenhouseData[plant.Greenhouse]?.water || 'N/A', 'Water')}
             </View>
 
             <View style={styles.cardActions}>
@@ -578,7 +688,7 @@ const PlantHealth = () => {
 
               <TouchableOpacity 
                 style={styles.detailsButton}
-                onPress={() => handleViewDetails(greenhouse)}
+                onPress={() => handleViewDetails(plant)}
               >
                 <Text style={styles.detailsButtonText}>View Details</Text>
                 <Icon name="chevron-right" size={20} color="#0d986a" style={styles.detailsIcon} />

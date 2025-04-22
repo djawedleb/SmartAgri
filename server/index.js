@@ -40,6 +40,15 @@ const loginSchema = new mongoose.Schema({
   
   const User = moongoose.model("User", AddUserSchema);
 
+  
+  const AddPlant = new mongoose.Schema({
+    Name: String,
+    Greenhouse: String,
+    Image: String,
+  });
+  
+  const Plant = moongoose.model("Plant", AddPlant);
+
 // to search the user and allow him to login, from the explore page handlesubmit function//
 app.post("/exploreUser", async function(req, res){
     try {
@@ -154,6 +163,67 @@ app.post("/AddUser", function(req, res){
         }
       });
 
+
+  // the endpoint to add a new plant from PlantHealth handlesubmit function//
+app.post("/AddPlant", function(req, res){
+  console.log(req.body);
+  const AddedPlant = req.body;
+    const NewPlant = new Plant({
+        Name : AddedPlant.name, 
+        Greenhouse : AddedPlant.greenhouse,
+        Image : AddedPlant.image,
+    })
+    NewPlant.save(); //saving it to the DB of plants//
+    res.json({ message: "Plant added successfully" });
+  });
+
+ // Endpoint to get all plants from PlantHealth page UseEffect
+ app.get("/GetPlants", async (req, res) => {
+  try {
+    const plants = await Plant.find({});
+    res.json(plants);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// Endpoint to delete a plant from PlantHealth handleRemove function
+app.post("/DeletePlant", function(req, res){
+  const { id } =req.body; 
+  console.log(id);
+  async function Delete() {
+    try {
+      const deletedPlant = await Plant.findByIdAndDelete(id); // Delete by ID from Plants dataBase
+      if (!deletedPlant) {
+        return res.status(404).json({ message: 'Plant not found' });
+      }
+      res.status(200).json({ message: 'Plant deleted successfully' });
+    } catch (error) {
+      console.error("Error deleting plant:", error);
+      res.status(500).json({ message: "Error deleting plant", error: error.message });
+    }
+  }
+     Delete();
+  });
+
+   // Endpoint to update a Plant from PlantHealth handleEdit function
+   app.put("/updatePlant/:id", async (req, res) => {
+    const { id } = req.params;
+    const { name, greenhouse, image } = req.body;
+    try {
+      const updatedPlant = await Plant.findByIdAndUpdate(
+        id,
+        { Name: name, Greenhouse: greenhouse, Image: image },
+        { new: true }
+      );
+      res.json({ message: "Plant updated", plant: updatedPlant });
+    } catch (err) {
+      console.error("Error updating plant:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
 //getting the login data then passing it to SmartAgri database for debugging//
 app.post("/explore", function(req, res){
