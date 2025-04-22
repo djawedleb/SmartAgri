@@ -49,6 +49,13 @@ const loginSchema = new mongoose.Schema({
   
   const Plant = moongoose.model("Plant", AddPlant);
 
+  const AddGreenhouse = new mongoose.Schema({
+    Name: String,
+    Location: String,
+  });
+  
+  const Greenhouse = moongoose.model("Greenhouse", AddGreenhouse);
+
 // to search the user and allow him to login, from the explore page handlesubmit function//
 app.post("/exploreUser", async function(req, res){
     try {
@@ -224,6 +231,19 @@ app.post("/DeletePlant", function(req, res){
       res.status(500).json({ error: err.message });
     }
   });
+
+// the endpoint to add a new Greenhouse from Greenhouses handlesubmit function//
+app.post("/AddGreenhouse", function(req, res){
+  console.log(req.body);
+  const AddedGreenhouse = req.body;
+    const NewGreenhouse = new Greenhouse({
+        Name : AddedGreenhouse.name, 
+        Location : AddedGreenhouse.location,
+    })
+    NewGreenhouse.save(); //saving it to the DB of greenhouses//
+    res.json({ message: "Plant added successfully" });
+  });
+
 
 //getting the login data then passing it to SmartAgri database for debugging//
 app.post("/explore", function(req, res){

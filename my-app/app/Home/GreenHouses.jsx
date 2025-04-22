@@ -4,8 +4,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import * as DocumentPicker from 'expo-document-picker';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { getBaseUrl } from '../../config';
 
 const GreenHouses = () => {
+  const GreenHouseImg = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae";
   const [selectedGreenhouse, setSelectedGreenhouse] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -46,6 +48,7 @@ const GreenHouses = () => {
     })();
   }, []);
 
+  //to handle adding a location
   const handleMapPress = (e) => {
     const { coordinate } = e.nativeEvent;
     setSelectedLocation(coordinate);
@@ -91,17 +94,6 @@ const GreenHouses = () => {
       water: 'Off',
       owner: 'Victor Hugo Rivero Muñiz',
       location: { lat: 40.7128, lng: -74.0060 }
-    },
-    {
-      id: 2,
-      name: 'GreenHouse 2',
-      image: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae',
-      temperature: '30°C',
-      light: '59%',
-      humidity: 'Off',
-      water: 'Off',
-      owner: 'Victor Hugo Rivero Muñiz',
-      location: { lat: 40.7128, lng: -74.0060 }
     }
   ];
 
@@ -122,7 +114,7 @@ const GreenHouses = () => {
   ];
   // hdou mb3d nchoufouo ida ndirouhoum tahoum tabs li kanou t7t plants section fl greenhouse view
   // const tabs = ['All', 'Cacti', 'In pots', 'Dried flowers'];
-  // greenhouses cards
+  // greenhouses readings
   const renderReadings = (greenhouse) => (
     <View style={styles.readingsContainer}>
       <View style={styles.readingItem}>
@@ -144,7 +136,7 @@ const GreenHouses = () => {
     </View>
   );
 
-  // plants cards li fl greenhouse view
+  //  to display the plants in the greenhouse view
   const renderPlantCard = (plant) => (
     <TouchableOpacity key={plant.id} style={styles.plantCard}>
       <Image 
@@ -162,7 +154,7 @@ const GreenHouses = () => {
     </TouchableOpacity>
   );
 
-  // map card li fl greenhouse view 
+  // map card in the greenhouse view 
   const renderPropertyCard = (greenhouse) => (
     <View style={styles.propertyCard}>
       <View style={styles.mapContainer}>
@@ -192,6 +184,7 @@ const GreenHouses = () => {
     </View>
   );
 
+  // the image selection when adding or editing
   const handleImageSelect = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -224,7 +217,8 @@ const GreenHouses = () => {
     }
   };
 
-  const handleAdd = () => {
+  // function to handle adding or updating greenhouse
+  const handleAdd = async () => {
     if (!formData.name.trim()) {
       Alert.alert('Error', 'Please enter a greenhouse name');
       return;
@@ -233,21 +227,40 @@ const GreenHouses = () => {
       Alert.alert('Error', 'Please select a location');
       return;
     }
-    // Here you would typically make an API call to add/update the greenhouse
-    Alert.alert('Success', isEditMode ? 
-      `Updated greenhouse "${formData.name}"` : 
-      `Created new greenhouse "${formData.name}"`
-    );
-    setFormData({
-      name: '',
-      location: '',
-      image: null,
-      coordinates: null
-    });
-    setIsModalVisible(false);
-    setIsEditMode(false);
+    
+    try {
+          const baseUrl = getBaseUrl();
+          const response = await fetch(`${baseUrl}/AddGreenhouse`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData),
+          });
+    
+          if (!response.ok) {
+              console.error('Network response was not ok:', response.statusText);
+              throw new Error('Network response was not ok');
+          }
+          const result = await response.json();
+          Alert.alert('Success', isEditMode ? 
+            `Updated greenhouse "${formData.name}"` : 
+            `Created new greenhouse "${formData.name}"`
+          );
+          console.log('Greenhouse added/updated:', formData);
+          setIsModalVisible(false);
+          setIsEditMode(false);
+          setFormData({
+            name: '',
+            location: '',
+            image: null,
+            coordinates: null
+          });
+ 
+      } catch (error) {
+          console.error('There was an error!', error);
+      }
   };
 
+  // function to handle search in the search bar of map view
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -279,6 +292,7 @@ const GreenHouses = () => {
     }
   };
 
+  // to display the map modal
   const renderMapModal = () => (
     <Modal
       visible={showMapModal}
@@ -370,6 +384,7 @@ const GreenHouses = () => {
     </Modal>
   );
 
+  // to display the modal for adding or editing a greenhouse
   const renderModal = () => (
     <Modal
       animationType="slide"
@@ -413,28 +428,33 @@ const GreenHouses = () => {
             {/* Image Upload Section */}
             <View style={styles.formGroup}>
               <Text style={styles.label}>Image</Text>
+              {/* 
               <TouchableOpacity 
                 style={styles.imagePickerButton} 
                 onPress={handleImageSelect}
               >
                 <Icon name="image-plus" size={24} color="#666" />
+                
                 <Text style={styles.imagePickerText}>
                   {formData.image ? 'Change Image' : 'Choose Image'}
                 </Text>
               </TouchableOpacity>
-              {formData.image && (
+              */}
+              {GreenHouseImg /* formData.image*/  && (
                 <View style={styles.selectedImageContainer}>
                   <Image 
-                    source={{ uri: formData.image }} 
+                    source={{ uri: GreenHouseImg /* formData.image*/ }} 
                     style={styles.selectedImage} 
                     resizeMode="cover"
                   />
+                  {/* 
                   <TouchableOpacity
                     style={styles.removeImageButton}
                     onPress={() => setFormData(prev => ({ ...prev, image: null }))}
-                  >
+                  > 
                     <Icon name="close-circle" size={24} color="#FF4444" />
                   </TouchableOpacity>
+                  */}
                 </View>
               )}
             </View>
@@ -474,13 +494,14 @@ const GreenHouses = () => {
     </Modal>
   );
 
+  // to display the greenhouses cards
   const renderGreenhouseCard = (greenhouse) => (
     <TouchableOpacity
       key={greenhouse.id}
       style={styles.greenhouseCard}
       onPress={() => setSelectedGreenhouse(greenhouse)}
     >
-      <Image source={{ uri: greenhouse.image }} style={styles.greenhouseImage} />
+      <Image source={{ uri: GreenHouseImg}} style={styles.greenhouseImage} />
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <Text style={styles.greenhouseName}>{greenhouse.name}</Text>
@@ -534,6 +555,7 @@ const GreenHouses = () => {
     </TouchableOpacity>
   );
 
+  // main render function
   return (
     <View style={styles.container}>
       <ScrollView 
@@ -557,7 +579,7 @@ const GreenHouses = () => {
             </View>
 
             <Image 
-              source={{ uri: selectedGreenhouse.image }} 
+              source={{ uri: GreenHouseImg }} 
               style={styles.detailImage}
             />
 
