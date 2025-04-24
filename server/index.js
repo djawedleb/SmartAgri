@@ -2,7 +2,6 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const { type } = require("jquery");
 const { default: mongoose } = require("mongoose");
-const moongoose = require("mongoose");
 //Cross-Origin Resource Sharing (CORS) is a browser-level security feature that disallows the requests (by default) to be made between different origins
 //a frontend client(page) requesting a backend server that is deployed on a different origin or domain. we require cors to allow this
 const cors = require('cors');
@@ -20,7 +19,7 @@ Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE
 Status Code: 204 
 */
 
-moongoose.connect("mongodb://localhost:27017/SmartAgri" )
+mongoose.connect("mongodb://localhost:27017/SmartAgri" )
 .then(() => console.log("Connected to MongoDB"))
 .catch(err => console.error("Failed to connect to MongoDB", err));
 
@@ -29,7 +28,7 @@ const loginSchema = new mongoose.Schema({
     Password: String,
   });
 
-  const login = moongoose.model("login", loginSchema);
+  const login = mongoose.model("login", loginSchema);
 
   const AddUserSchema = new mongoose.Schema({
     UserName: String,
@@ -38,7 +37,7 @@ const loginSchema = new mongoose.Schema({
     Role: String
   });
   
-  const User = moongoose.model("User", AddUserSchema);
+  const User = mongoose.model("User", AddUserSchema);
 
   
   const AddPlant = new mongoose.Schema({
@@ -47,14 +46,15 @@ const loginSchema = new mongoose.Schema({
     Image: String,
   });
   
-  const Plant = moongoose.model("Plant", AddPlant);
+  const Plant = mongoose.model("Plant", AddPlant);
 
   const AddGreenhouse = new mongoose.Schema({
     Name: String,
     Location: String,
+    Image: String,
   });
   
-  const Greenhouse = moongoose.model("Greenhouse", AddGreenhouse);
+  const Greenhouse = mongoose.model("Greenhouse", AddGreenhouse);
 
 // to search the user and allow him to login, from the explore page handlesubmit function//
 app.post("/exploreUser", async function(req, res){
@@ -232,20 +232,74 @@ app.post("/DeletePlant", function(req, res){
     }
   });
 
-// the endpoint to add a new Greenhouse from Greenhouses handlesubmit function//
-app.post("/AddGreenhouse", function(req, res){
-  console.log(req.body);
-  const AddedGreenhouse = req.body;
-    const NewGreenhouse = new Greenhouse({
-        Name : AddedGreenhouse.name, 
-        Location : AddedGreenhouse.location,
-    })
-    NewGreenhouse.save(); //saving it to the DB of greenhouses//
-    res.json({ message: "Plant added successfully" });
-  });
+// Endpoint to get all greenhouses
+app.get("/GetGreenhouses", async (req, res) => {
+  try {
+    const greenhouses = await Greenhouse.find({});
+    res.json(greenhouses);
+  } catch (error) {
+    console.error('Error fetching greenhouses:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
+// Endpoint to add a new greenhouse
+app.post("/AddGreenhouse", async (req, res) => {
+  try {
+    const { name, location, image } = req.body;
+    const newGreenhouse = new Greenhouse({
+      Name: name,
+      Location: location,
+      Image: image || null
+    });
+    await newGreenhouse.save();
+    res.json({ message: "Greenhouse added successfully", greenhouse: newGreenhouse });
+  } catch (error) {
+    console.error('Error adding greenhouse:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-//getting the login data then passing it to SmartAgri database for debugging//
+// Endpoint to update a greenhouse
+app.put("/updateGreenhouse/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, location, image } = req.body;
+    const updatedGreenhouse = await Greenhouse.findByIdAndUpdate(
+      id,
+      { 
+        Name: name,
+        Location: location,
+        Image: image || null
+      },
+      { new: true }
+    );
+    if (!updatedGreenhouse) {
+      return res.status(404).json({ message: 'Greenhouse not found' });
+    }
+    res.json({ message: "Greenhouse updated successfully", greenhouse: updatedGreenhouse });
+  } catch (error) {
+    console.error('Error updating greenhouse:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Endpoint to delete a greenhouse
+app.post("/DeleteGreenhouse", async (req, res) => {
+  try {
+    const { id } = req.body;
+    const deletedGreenhouse = await Greenhouse.findByIdAndDelete(id);
+    if (!deletedGreenhouse) {
+      return res.status(404).json({ message: 'Greenhouse not found' });
+    }
+    res.json({ message: 'Greenhouse deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting greenhouse:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// getting the login data then passing it to SmartAgri database for debugging//
 app.post("/explore", function(req, res){
     console.log(req.body);
     const typeditem = req.body;
@@ -319,5 +373,16 @@ app.get("/weather", async function(req, res) {
             error: 'Failed to fetch weather data',
             message: error.message
         });
+    }
+});00
+
+// Endpoint to get greenhouse names for dropdown
+app.get("/GetGreenhouseNames", async (req, res) => {
+  try {
+    const greenhouses = await Greenhouse.find({}, 'Name _id');
+    res.json(greenhouses);
+  } catch (error) {
+    console.error('Error fetching greenhouse names:', error);
+    res.status(500).json({ error: 'Server error' });
     }
 });

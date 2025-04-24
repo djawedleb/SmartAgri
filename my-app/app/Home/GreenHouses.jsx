@@ -8,6 +8,7 @@ import { getBaseUrl } from '../../config';
 
 const GreenHouses = () => {
   const GreenHouseImg = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae";
+  const [greenhouses, setGreenhouses] = useState([]);
   const [selectedGreenhouse, setSelectedGreenhouse] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -48,6 +49,26 @@ const GreenHouses = () => {
     })();
   }, []);
 
+  // Fetch greenhouses when component mounts
+  useEffect(() => {
+    fetchGreenhouses();
+  }, []);
+
+  const fetchGreenhouses = async () => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/GetGreenhouses`);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      setGreenhouses(data);
+    } catch (error) {
+      console.error('Error fetching greenhouses:', error);
+      Alert.alert('Error', 'Failed to fetch greenhouses');
+    }
+  };
+
   //to handle adding a location
   const handleMapPress = (e) => {
     const { coordinate } = e.nativeEvent;
@@ -82,20 +103,6 @@ const GreenHouses = () => {
     setShowResults(false);
     setSearchQuery(result.display_name);
   };
-
-  const greenhouses = [
-    {
-      id: 1,
-      name: 'GreenHouse 1',
-      image: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae',
-      temperature: '30°C',
-      light: '59%',
-      humidity: 'Off',
-      water: 'Off',
-      owner: 'Victor Hugo Rivero Muñiz',
-      location: { lat: 40.7128, lng: -74.0060 }
-    }
-  ];
 
   const plants = [
     {
@@ -233,30 +240,92 @@ const GreenHouses = () => {
           const response = await fetch(`${baseUrl}/AddGreenhouse`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          location: formData.location,
+          image: formData.image
+        }),
           });
     
           if (!response.ok) {
-              console.error('Network response was not ok:', response.statusText);
               throw new Error('Network response was not ok');
           }
-          const result = await response.json();
-          Alert.alert('Success', isEditMode ? 
-            `Updated greenhouse "${formData.name}"` : 
-            `Created new greenhouse "${formData.name}"`
-          );
-          console.log('Greenhouse added/updated:', formData);
+
+      await fetchGreenhouses();
+      Alert.alert('Success', `Created new greenhouse "${formData.name}"`);
+      
           setIsModalVisible(false);
-          setIsEditMode(false);
           setFormData({
             name: '',
             location: '',
-            image: null,
-            coordinates: null
-          });
- 
+        image: null
+      });
+    } catch (error) {
+      console.error('Error adding greenhouse:', error);
+      Alert.alert('Error', 'Failed to add greenhouse');
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!formData.name.trim()) {
+      Alert.alert('Error', 'Please enter a greenhouse name');
+      return;
+    }
+    if (!formData.location.trim()) {
+      Alert.alert('Error', 'Please select a location');
+      return;
+    }
+    
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/updateGreenhouse/${selectedGreenhouse._id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          name: formData.name,
+          location: formData.location,
+          image: formData.image
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      await fetchGreenhouses();
+      Alert.alert('Success', `Updated greenhouse "${formData.name}"`);
+      
+      setIsModalVisible(false);
+      setSelectedGreenhouse(null);
+      setFormData({
+        name: '',
+        location: '',
+        image: null
+      });
       } catch (error) {
-          console.error('There was an error!', error);
+      console.error('Error updating greenhouse:', error);
+      Alert.alert('Error', 'Failed to update greenhouse');
+    }
+  };
+
+  const handleDeleteGreenhouse = async (id) => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/DeleteGreenhouse`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      await fetchGreenhouses();
+      Alert.alert('Success', 'Greenhouse removed successfully');
+    } catch (error) {
+      console.error('Error deleting greenhouse:', error);
+      Alert.alert('Error', 'Failed to delete greenhouse');
       }
   };
 
@@ -482,7 +551,7 @@ const GreenHouses = () => {
 
             <TouchableOpacity
               style={styles.submitButton}
-              onPress={handleAdd}
+              onPress={isEditMode ? handleUpdate : handleAdd}
             >
               <Text style={styles.submitButtonText}>
                 {isEditMode ? 'Save Changes' : 'Add Greenhouse'}
@@ -497,27 +566,27 @@ const GreenHouses = () => {
   // to display the greenhouses cards
   const renderGreenhouseCard = (greenhouse) => (
     <TouchableOpacity
-      key={greenhouse.id}
+      key={greenhouse._id}
       style={styles.greenhouseCard}
       onPress={() => setSelectedGreenhouse(greenhouse)}
     >
-      <Image source={{ uri: GreenHouseImg}} style={styles.greenhouseImage} />
+      <Image 
+        source={{ uri: greenhouse.Image || GreenHouseImg }} 
+        style={styles.greenhouseImage} 
+      />
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <Text style={styles.greenhouseName}>{greenhouse.name}</Text>
+          <Text style={styles.greenhouseName}>{greenhouse.Name}</Text>
           <View style={styles.cardActions}>
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => {
                 setIsEditMode(true);
+                setSelectedGreenhouse(greenhouse);
                 setFormData({
-                  name: greenhouse.name,
-                  location: `${greenhouse.location.lat}, ${greenhouse.location.lng}`,
-                  image: greenhouse.image,
-                  coordinates: {
-                    latitude: greenhouse.location.lat,
-                    longitude: greenhouse.location.lng
-                  }
+                  name: greenhouse.Name,
+                  location: greenhouse.Location,
+                  image: greenhouse.Image
                 });
                 setIsModalVisible(true);
               }}
@@ -537,10 +606,7 @@ const GreenHouses = () => {
                     },
                     {
                       text: 'Remove',
-                      onPress: () => {
-                        // Here you would typically make an API call to remove the greenhouse
-                        Alert.alert('Success', 'Greenhouse removed successfully');
-                      },
+                      onPress: () => handleDeleteGreenhouse(greenhouse._id),
                     },
                   ],
                 );
@@ -550,7 +616,24 @@ const GreenHouses = () => {
             </TouchableOpacity>
           </View>
         </View>
-        {renderReadings(greenhouse)}
+        <View style={styles.readingsContainer}>
+          <View style={styles.readingItem}>
+            <Icon name="white-balance-sunny" size={24} color="#333" />
+            <Text style={styles.readingValue}>59%</Text>
+          </View>
+          <View style={styles.readingItem}>
+            <Icon name="thermometer" size={24} color="#333" />
+            <Text style={styles.readingValue}>30°C</Text>
+          </View>
+          <View style={styles.readingItem}>
+            <Icon name="water-percent" size={24} color="#999" />
+            <Text style={styles.readingValue}>Off</Text>
+          </View>
+          <View style={styles.readingItem}>
+            <Icon name="waves" size={24} color="#999" />
+            <Text style={styles.readingValue}>Off</Text>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -562,10 +645,7 @@ const GreenHouses = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {!selectedGreenhouse ? (
-          // Greenhouse List View
-          greenhouses.map(renderGreenhouseCard)
-        ) : (
+        {selectedGreenhouse ? (
           // Detailed Greenhouse View
           <View>
             <View style={styles.header}>
@@ -575,43 +655,48 @@ const GreenHouses = () => {
               >
                 <Icon name="chevron-left" size={24} color="#333" />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>{selectedGreenhouse.name}</Text>
+              <Text style={styles.headerTitle}>{selectedGreenhouse.Name}</Text>
             </View>
 
             <Image 
-              source={{ uri: GreenHouseImg }} 
+              source={{ uri: selectedGreenhouse.Image || GreenHouseImg }} 
               style={styles.detailImage}
             />
 
             <Text style={styles.sectionTitle}>Plants</Text>
-            
-            {/* <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.tabsContainer}
-            >
-              {tabs.map((tab) => (
-                <TouchableOpacity
-                  key={tab}
-                  style={[
-                    styles.tab,
-                    activeTab === tab && styles.activeTab
-                  ]}
-                  onPress={() => setActiveTab(tab)}
-                >
-                  <Text style={[
-                    styles.tabText,
-                    activeTab === tab && styles.activeTabText
-                  ]}>{tab}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView> */}
-
             {plants.map(renderPlantCard)}
 
             <Text style={styles.sectionTitle}>Property</Text>
-            {renderPropertyCard(selectedGreenhouse)}
+            <View style={styles.propertyCard}>
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  region={{
+                    latitude: parseFloat(selectedGreenhouse.Location.split(',')[0]),
+                    longitude: parseFloat(selectedGreenhouse.Location.split(',')[1]),
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                  scrollEnabled={false}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: parseFloat(selectedGreenhouse.Location.split(',')[0]),
+                      longitude: parseFloat(selectedGreenhouse.Location.split(',')[1]),
+                    }}
+                    title={selectedGreenhouse.Name}
+                  />
+                </MapView>
+                <View style={styles.mapOverlay}>
+                  <Text style={styles.mapTitle}>{selectedGreenhouse.Name}</Text>
+                  <Text style={styles.mapSubtitle}>Location: {selectedGreenhouse.Location}</Text>
           </View>
+              </View>
+            </View>
+          </View>
+        ) : (
+          // Greenhouse List View
+          greenhouses.map(renderGreenhouseCard)
         )}
       </ScrollView>
 

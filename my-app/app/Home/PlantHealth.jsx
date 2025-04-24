@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, TextInput, Platform, Dimensions } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import * as DocumentPicker from 'expo-document-picker';
+import { Picker } from '@react-native-picker/picker';
 import { getBaseUrl } from '../../config';
 
 const PlantHealth = () => {
@@ -10,6 +11,7 @@ const PlantHealth = () => {
   const [showEditModal, setShowEditModal] = useState(false); //triggers the edit plant modal
   const [showAddModal, setShowAddModal] = useState(false); //triggers the add plant modal, when clicking the plus icon it becomes true
   const [SavedPlants, setSavedPlants] = useState([]); //to get and display all the saved plants
+  const [greenhouses, setGreenhouses] = useState([]);
 
   const [newPlant, setNewPlant] = useState({  //a hook to store the new plant data
     name: '',
@@ -53,6 +55,7 @@ const PlantHealth = () => {
   //to display the added users
   useEffect(() => {
     refreshPlants();
+    fetchGreenhouses();
   }, []);
 
   const handleViewDetails = (plant) => {
@@ -385,24 +388,21 @@ const handleEditPlant = (plant) => {
 
             {/* Greenhouse Selection */}
             <Text style={styles.inputLabel}>Greenhouse *</Text>
-            <View style={styles.greenhouseSelector}>
-              {['GreenHouse 1', 'GreenHouse 2'].map((house) => (
-                <TouchableOpacity
-                  key={house}
-                  style={[
-                    styles.greenhouseOption,
-                    selectedPlant?.Greenhouse === house && styles.greenhouseOptionSelected
-                  ]}
-                  onPress={() => handleGreenhouseSelect(house)}
-                >
-                  <Text style={[
-                    styles.greenhouseOptionText,
-                    selectedPlant?.Greenhouse === house && styles.greenhouseOptionTextSelected
-                  ]}>
-                    {house}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={selectedPlant?.Greenhouse}
+                style={styles.picker}
+                onValueChange={(itemValue) => handleGreenhouseSelect(itemValue)}
+              >
+                <Picker.Item label="Select a greenhouse" value="" />
+                {greenhouses.map((greenhouse) => (
+                  <Picker.Item 
+                    key={greenhouse._id} 
+                    label={greenhouse.Name} 
+                    value={greenhouse._id} 
+                  />
+                ))}
+              </Picker>
             </View>
 
             {/* Sensor Data Display */}
@@ -560,24 +560,21 @@ const handleEditPlant = (plant) => {
 
             {/* Greenhouse Selection */}
             <Text style={styles.inputLabel}>Greenhouse *</Text>
-            <View style={styles.greenhouseSelector}>
-              {['GreenHouse 1', 'GreenHouse 2'].map((house) => (
-                <TouchableOpacity
-                  key={house}
-                  style={[
-                    styles.greenhouseOption,
-                    newPlant.greenhouse === house && styles.greenhouseOptionSelected
-                  ]}
-                  onPress={() => handleGreenhouseSelect(house)}
-                >
-                  <Text style={[
-                    styles.greenhouseOptionText,
-                    newPlant.greenhouse === house && styles.greenhouseOptionTextSelected
-                  ]}>
-                    {house}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={newPlant.greenhouse}
+                style={styles.picker}
+                onValueChange={(itemValue) => setNewPlant(prev => ({ ...prev, greenhouse: itemValue }))}
+              >
+                <Picker.Item label="Select a greenhouse" value="" />
+                {greenhouses.map((greenhouse) => (
+                  <Picker.Item 
+                    key={greenhouse._id} 
+                    label={greenhouse.Name} 
+                    value={greenhouse._id} 
+                  />
+                ))}
+              </Picker>
             </View>
 
             {/* Sensor Data Display */}
@@ -607,6 +604,21 @@ const handleEditPlant = (plant) => {
     </View>
   );
   
+  const fetchGreenhouses = async () => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/GetGreenhouseNames`);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      setGreenhouses(data);
+    } catch (error) {
+      console.error('Error fetching greenhouses:', error);
+      Alert.alert('Error', 'Failed to fetch greenhouses');
+    }
+  };
+
   //Main page component
   return (
     <View style={styles.container}>
@@ -1134,73 +1146,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  greenhouseSelector: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  greenhouseOption: {
-    flex: 1,
-    padding: 12,
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 8,
-    backgroundColor: '#f1f9f5',
-    alignItems: 'center',
+    marginBottom: 16,
+    overflow: 'hidden',
   },
-  greenhouseOptionSelected: {
-    backgroundColor: '#0d986a',
-  },
-  greenhouseOptionText: {
-    color: '#0d986a',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  greenhouseOptionTextSelected: {
-    color: '#fff',
-  },
-  sensorDataContainer: {
-    marginTop: 16,
-    backgroundColor: '#f1f9f5',
-    borderRadius: 12,
-    padding: 12,
-  },
-  sensorDataTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  sensorDataGrid: {
-    gap: 8,
-  },
-  sensorRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sensorItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 8,
-    gap: 6,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  sensorIconWrapper: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#e8f5e9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sensorValue: {
-    fontSize: 13,
-    fontWeight: '500',
+  picker: {
+    height: 50,
+    width: '100%',
     color: '#333',
   },
 });
