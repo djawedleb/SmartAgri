@@ -6,11 +6,18 @@ const { default: mongoose } = require("mongoose");
 //a frontend client(page) requesting a backend server that is deployed on a different origin or domain. we require cors to allow this
 const cors = require('cors');
 const https = require("https");
+const multer = require('multer'); // to handle image uploads
+//const tf = require('@tensorflow/tfjs-node'); //to load a pre-trained model and make predictions
+const sharp = require('sharp'); //to resize and optimize images
+const path = require('path'); //to handle file paths
+const fs = require('fs'); //to handle file operations
 
 const app = express();
 app.use(bodyParser.json()); //so we are able to read data from the react app.js, Handles JSON data Used for API requests
 app.use(bodyParser.urlencoded({extended:true})); //Handles form data :
 // Used for HTML forms
+
+const upload = multer({ dest: 'uploads/' }); //to handle image uploads
 
 app.use(cors()); //making the server accessible to any domain that requests a resource from it via a browser//
 /* app.use(cors) adds the following headers:
@@ -374,7 +381,7 @@ app.get("/weather", async function(req, res) {
             message: error.message
         });
     }
-});00
+});
 
 // Endpoint to get greenhouse names for dropdown
 app.get("/GetGreenhouseNames", async (req, res) => {
@@ -386,3 +393,25 @@ app.get("/GetGreenhouseNames", async (req, res) => {
     res.status(500).json({ error: 'Server error' });
     }
 });
+
+/*
+// Load model once at startup
+let model;
+const labels = [
+  "Tomato___Early_blight",
+  "Tomato___Late_blight",
+  "Tomato___healthy"
+  // Add more labels based on your model
+];
+
+async function loadModel() {
+  try {
+    model = await tf.loadLayersModel('file://model/model.json');
+    console.log('Model loaded successfully');
+  } catch (error) {
+    console.error('Error loading model:', error);
+  }
+}
+
+loadModel();
+*/
