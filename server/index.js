@@ -17,7 +17,33 @@ app.use(bodyParser.json()); //so we are able to read data from the react app.js,
 app.use(bodyParser.urlencoded({extended:true})); //Handles form data :
 // Used for HTML forms
 
-const upload = multer({ dest: 'uploads/' }); //to handle image uploads
+// Configure multer for image uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static('uploads'));
 
 app.use(cors()); //making the server accessible to any domain that requests a resource from it via a browser//
 /* app.use(cors) adds the following headers:
@@ -179,28 +205,40 @@ app.post("/AddUser", function(req, res){
 
 
   // the endpoint to add a new plant from PlantHealth handlesubmit function//
-app.post("/AddPlant", function(req, res){
-  console.log(req.body);
-  const AddedPlant = req.body;
-    const NewPlant = new Plant({
-        Name : AddedPlant.name, 
-        Greenhouse : AddedPlant.greenhouse,
-        Image : AddedPlant.image,
-    })
-    NewPlant.save(); //saving it to the DB of plants//
-    res.json({ message: "Plant added successfully" });
+  app.post("/AddPlant", upload.single('image'), async function(req, res){
+    try {
+      console.log('Received plant data:', req.body);
+      console.log('Received file:', req.file);
+      
+      const AddedPlant = req.body;
+      const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+      
+      const NewPlant = new Plant({
+        Name: AddedPlant.name,
+        Greenhouse: AddedPlant.greenhouse,
+        Image: imagePath
+      });
+      
+      const savedPlant = await NewPlant.save();
+      console.log('Plant saved successfully:', savedPlant);
+      res.json({ message: "Plant added successfully", plant: savedPlant });
+    } catch (error) {
+      console.error('Error adding plant:', error);
+      res.status(500).json({ error: 'Failed to add plant' });
+    }
   });
 
- // Endpoint to get all plants from PlantHealth page UseEffect
- app.get("/GetPlants", async (req, res) => {
-  try {
-    const plants = await Plant.find({});
-    res.json(plants);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+  // Endpoint to get all plants from PlantHealth page UseEffect
+  app.get("/GetPlants", async (req, res) => {
+    try {
+      const plants = await Plant.find({});
+      console.log('Fetched plants:', plants);
+      res.json(plants);
+    } catch (error) {
+      console.error('Error fetching plants:', error);
+      res.status(500).json({ error: 'Failed to fetch plants' });
+    }
+  });
 
 
 // Endpoint to delete a plant from PlantHealth handleRemove function
@@ -223,19 +261,35 @@ app.post("/DeletePlant", function(req, res){
   });
 
    // Endpoint to update a Plant from PlantHealth handleEdit function
-   app.put("/updatePlant/:id", async (req, res) => {
-    const { id } = req.params;
-    const { name, greenhouse, image } = req.body;
+   app.put("/updatePlant/:id", upload.single('image'), async (req, res) => {
     try {
+      const { id } = req.params;
+      const { name, greenhouse } = req.body;
+      const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+
+      const updateData = {
+        Name: name,
+        Greenhouse: greenhouse
+      };
+
+      if (imagePath) {
+        updateData.Image = imagePath;
+      }
+
       const updatedPlant = await Plant.findByIdAndUpdate(
         id,
-        { Name: name, Greenhouse: greenhouse, Image: image },
+        updateData,
         { new: true }
       );
-      res.json({ message: "Plant updated", plant: updatedPlant });
-    } catch (err) {
-      console.error("Error updating plant:", err);
-      res.status(500).json({ error: err.message });
+
+      if (!updatedPlant) {
+        return res.status(404).json({ message: 'Plant not found' });
+      }
+
+      res.json({ message: "Plant updated successfully", plant: updatedPlant });
+    } catch (error) {
+      console.error('Error updating plant:', error);
+      res.status(500).json({ error: 'Failed to update plant' });
     }
   });
 
@@ -392,6 +446,18 @@ app.get("/GetGreenhouseNames", async (req, res) => {
     console.error('Error fetching greenhouse names:', error);
     res.status(500).json({ error: 'Server error' });
     }
+});
+
+// Endpoint to get plants by greenhouse ID
+app.get("/GetPlantsByGreenhouse/:greenhouseId", async (req, res) => {
+  try {
+    const { greenhouseId } = req.params;
+    const plants = await Plant.find({ Greenhouse: greenhouseId });
+    res.json(plants);
+  } catch (err) {
+    console.error("Error fetching plants:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /*

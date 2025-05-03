@@ -30,6 +30,7 @@ const GreenHouses = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [plants, setPlants] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -105,23 +106,6 @@ const GreenHouses = () => {
     setSearchQuery(result.display_name);
   };
 
-  const plants = [
-    {
-      id: 1,
-      name: 'Echeveria',
-      image: 'https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797',
-      size: '3 inch'
-    },
-    {
-      id: 2,
-      name: 'Prickly Pear',
-      image: 'https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797',
-      rating: 4.8,
-      size: '5 inch'
-    }
-  ];
-  // hdou mb3d nchoufouo ida ndirouhoum tahoum tabs li kanou t7t plants section fl greenhouse view
-  // const tabs = ['All', 'Cacti', 'In pots', 'Dried flowers'];
   // greenhouses readings
   const renderReadings = (greenhouse) => (
     <View style={styles.readingsContainer}>
@@ -146,17 +130,17 @@ const GreenHouses = () => {
 
   //  to display the plants in the greenhouse view
   const renderPlantCard = (plant) => (
-    <TouchableOpacity key={plant.id} style={styles.plantCard}>
+    <TouchableOpacity key={plant._id} style={styles.plantCard}>
       <Image 
-        source={{ uri: plant.image }}
+        source={{ uri: plant.Image || 'https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797' }}
         style={styles.plantImage} 
       />
       <View style={styles.plantInfo}>
         <View style={styles.plantHeader}>
-          <Text style={styles.plantName}>{plant.name}</Text>
+          <Text style={styles.plantName}>{plant.Name}</Text>
         </View>
         <View style={styles.plantDetails}>
-          <Text style={styles.plantSize}>From {plant.size}</Text>
+          <Text style={styles.plantSize}>Status: Healthy</Text>
         </View>
       </View>
     </TouchableOpacity>
