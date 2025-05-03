@@ -3,9 +3,8 @@ import React, {useState, useEffect} from 'react'
 import {Link, router} from 'expo-router'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getBaseUrl } from '../../config';
-import { LoginDataProvider, useLoginData } from '../context/LoginDataContext';
+import { useLoginData } from '../context/LoginDataContext';
 const { width, height } = Dimensions.get('window');
-
 
 const ExploreContent = () => {
 
@@ -63,7 +62,12 @@ const ExploreContent = () => {
 
         // Check if the account exists
         if (result.exists) {
-            // Account exists, navigate to the next page
+            // Account exists, update loginData with the user's name
+            setLoginData(prevData => ({
+                ...prevData,
+                name: loginData.UserName // Using the username as the display name
+            }));
+            // Navigate to the next page
             router.push('/Home/');
         } else {
             // Account doesn't exist, stay on login page
@@ -131,16 +135,10 @@ const ExploreContent = () => {
      </View> 
       
     </View>
-  )
-}
-
-export default function Explore() {
-  return (
-    <LoginDataProvider>
-      <ExploreContent />
-    </LoginDataProvider>
   );
-}
+};
+
+export default ExploreContent;
 
 const styles = StyleSheet.create({
   container : {

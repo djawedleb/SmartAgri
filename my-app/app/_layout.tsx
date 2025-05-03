@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { LoginDataProvider } from './context/LoginDataContext';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 
@@ -28,6 +29,7 @@ export default function RootLayout() {
   }
 
   return (
+    <LoginDataProvider>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -36,5 +38,6 @@ export default function RootLayout() {
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
+    </LoginDataProvider>
   );
 }

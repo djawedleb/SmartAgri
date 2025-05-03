@@ -54,6 +54,7 @@ const GreenHouses = () => {
     fetchGreenhouses();
   }, []);
 
+  //to get all greenhouses from the server and display them
   const fetchGreenhouses = async () => {
     try {
       const baseUrl = getBaseUrl();

@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
+import { useLoginData } from '../context/LoginDataContext';
 
 const Account = () => {
   const router = useRouter();
+  const { loginData } = useLoginData(); //the login data we got from explore page that got passed to context
 
   const handleLogout = () => {
     Alert.alert(
@@ -57,7 +59,7 @@ const Account = () => {
         <View style={styles.avatarContainer}>
           <Icon name="account" size={50} color="#fff" />
         </View>
-        <Text style={styles.userName}>David Weber</Text>
+        <Text style={styles.userName}>{loginData.UserName}</Text>
         <Text style={styles.userDate}>3 January 1984</Text>
       </View>
 

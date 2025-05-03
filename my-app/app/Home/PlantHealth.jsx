@@ -387,6 +387,32 @@ const handleEditPlant = (plant) => {
             />
 
             {/* Greenhouse Selection */}
+{/*
+            <Text style={styles.inputLabel}>Greenhouse *</Text>
+            <View style={styles.greenhouseSelector}>
+            {[...greenhouses, ...Object.entries(greenhouseData).map(([name, data]) => ({
+                  _id: name,
+                  Name: name
+                }))].map((greenhouse) => (
+                <TouchableOpacity
+                  key={greenhouse._id}
+                  style={[
+                    styles.greenhouseOption,
+                    selectedPlant?.Greenhouse === greenhouse._id && styles.greenhouseOptionSelected
+                  ]}
+                  onPress={() => handleGreenhouseSelect(greenhouse._id)}
+                >
+                  <Text style={[
+                    styles.greenhouseOptionText,
+                    selectedPlant?.Greenhouse === greenhouse._id && styles.greenhouseOptionTextSelected
+                  ]}>
+                    {greenhouse.Name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+    */}           
             <Text style={styles.inputLabel}>Greenhouse *</Text>
             <View style={styles.pickerContainer}>
               <Picker
@@ -395,7 +421,10 @@ const handleEditPlant = (plant) => {
                 onValueChange={(itemValue) => handleGreenhouseSelect(itemValue)}
               >
                 <Picker.Item label="Select a greenhouse" value="" />
-                {greenhouses.map((greenhouse) => (
+                {[...greenhouses, ...Object.entries(greenhouseData).map(([name, data]) => ({
+                  _id: name,
+                  Name: name
+                }))].map((greenhouse) => (
                   <Picker.Item 
                     key={greenhouse._id} 
                     label={greenhouse.Name} 
@@ -404,6 +433,7 @@ const handleEditPlant = (plant) => {
                 ))}
               </Picker>
             </View>
+
 
             {/* Sensor Data Display */}
             {selectedPlant?.Greenhouse && (
@@ -567,7 +597,10 @@ const handleEditPlant = (plant) => {
                 onValueChange={(itemValue) => setNewPlant(prev => ({ ...prev, greenhouse: itemValue }))}
               >
                 <Picker.Item label="Select a greenhouse" value="" />
-                {greenhouses.map((greenhouse) => (
+                {[...greenhouses, ...Object.entries(greenhouseData).map(([name, data]) => ({
+                  _id: name,
+                  Name: name
+                }))].map((greenhouse) => (
                   <Picker.Item 
                     key={greenhouse._id} 
                     label={greenhouse.Name} 
@@ -815,8 +848,7 @@ const styles = StyleSheet.create({
   readingsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 16,
-  },
+    marginBottom: 16,  },
   readingItem: {
     width: '50%',
     flexDirection: 'row',
@@ -1158,6 +1190,29 @@ const styles = StyleSheet.create({
     width: '100%',
     color: '#333',
   },
+  greenhouseSelector: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  greenhouseOption: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f1f9f5',
+    alignItems: 'center',
+  },
+  greenhouseOptionSelected: {
+    backgroundColor: '#0d986a',
+  },
+  greenhouseOptionText: {
+    color: '#0d986a',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  greenhouseOptionTextSelected: {
+    color: '#fff',
+  }
 });
 
 export default PlantHealth;
