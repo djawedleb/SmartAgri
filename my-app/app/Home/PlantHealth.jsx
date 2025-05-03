@@ -76,12 +76,23 @@ const PlantHealth = () => {
       const baseUrl = getBaseUrl();
       console.log('Deleting plant with ID:', id);
       
+      // First, get the plant details to check if it has an image
+      const plantResponse = await fetch(`${baseUrl}/GetPlant/${id}`);
+      if (!plantResponse.ok) {
+        throw new Error('Failed to fetch plant details');
+      }
+      const plantData = await plantResponse.json();
+      
+      // Delete the plant
       const response = await fetch(`${baseUrl}/DeletePlant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ 
+          id,
+          imagePath: plantData.Image // Send the image path to be deleted
+        }),
       });
 
       console.log('Delete response status:', response.status);
@@ -158,7 +169,17 @@ const PlantHealth = () => {
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
       console.log('Fetched plants:', data);
-      setSavedPlants(data); // Remove mock data combination
+      
+      // Map greenhouse IDs to their names
+      const plantsWithGreenhouseNames = data.map(plant => {
+        const greenhouse = greenhouses.find(g => g._id === plant.Greenhouse);
+        return {
+          ...plant,
+          greenhouseName: greenhouse ? greenhouse.Name : 'Unknown Greenhouse'
+        };
+      });
+      
+      setSavedPlants(plantsWithGreenhouseNames);
     } catch (error) {
       console.error('Error refreshing plants:', error);
     }
@@ -209,8 +230,6 @@ const PlantHealth = () => {
           'Content-Type': 'multipart/form-data',
         },
       });
-
-      console.log('Response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -746,10 +765,10 @@ const handleEditPlant = (plant) => {
         />
         <View style={styles.plantInfo}>
           <Text style={styles.plantName}>{plant.Name}</Text>
-          <Text style={styles.greenhouseName}>{plant.Greenhouse}</Text>
+          <Text style={styles.greenhouseName}>{plant.greenhouseName}</Text>
           <View style={styles.statusContainer}>
             <Icon name="leaf" size={16} color="#0d986a" />
-            <Text style={styles.statusText}>Healthy</Text>
+            <Text style={styles.statusText}>{plant.status || 'Healthy'}</Text>
           </View>
         </View>
         <View style={styles.cardHeaderActions}>

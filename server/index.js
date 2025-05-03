@@ -242,23 +242,37 @@ app.post("/AddUser", function(req, res){
 
 
 // Endpoint to delete a plant from PlantHealth handleRemove function
-app.post("/DeletePlant", function(req, res){
-  const { id } =req.body; 
-  console.log(id);
-  async function Delete() {
-    try {
-      const deletedPlant = await Plant.findByIdAndDelete(id); // Delete by ID from Plants dataBase
-      if (!deletedPlant) {
-        return res.status(404).json({ message: 'Plant not found' });
-      }
-      res.status(200).json({ message: 'Plant deleted successfully' });
-    } catch (error) {
-      console.error("Error deleting plant:", error);
-      res.status(500).json({ message: "Error deleting plant", error: error.message });
+app.post("/DeletePlant", async function(req, res){
+  const { id, imagePath } = req.body; 
+  console.log('Deleting plant:', id, 'with image:', imagePath);
+  
+  try {
+    // First get the plant to ensure it exists and get the image path if not provided
+    const plant = await Plant.findById(id);
+    if (!plant) {
+      return res.status(404).json({ message: 'Plant not found' });
     }
+
+    // Delete the plant from database
+    const deletedPlant = await Plant.findByIdAndDelete(id);
+    
+    // Delete the image file if it exists
+    const imageToDelete = imagePath || plant.Image;
+    if (imageToDelete) {
+      const fullPath = path.join(__dirname, imageToDelete);
+      
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+        console.log('Deleted image file:', fullPath);
+      }
+    }
+
+    res.status(200).json({ message: 'Plant and associated image deleted successfully' });
+  } catch (error) {
+    console.error("Error deleting plant:", error);
+    res.status(500).json({ message: "Error deleting plant", error: error.message });
   }
-     Delete();
-  });
+});
 
    // Endpoint to update a Plant from PlantHealth handleEdit function
    app.put("/updatePlant/:id", upload.single('image'), async (req, res) => {
@@ -457,6 +471,20 @@ app.get("/GetPlantsByGreenhouse/:greenhouseId", async (req, res) => {
   } catch (err) {
     console.error("Error fetching plants:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint to get a single plant by ID
+app.get("/GetPlant/:id", async (req, res) => {
+  try {
+    const plant = await Plant.findById(req.params.id);
+    if (!plant) {
+      return res.status(404).json({ message: 'Plant not found' });
+    }
+    res.json(plant);
+  } catch (error) {
+    console.error('Error fetching plant:', error);
+    res.status(500).json({ error: 'Failed to fetch plant' });
   }
 });
 

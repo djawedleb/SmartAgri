@@ -55,6 +55,13 @@ const GreenHouses = () => {
     fetchGreenhouses();
   }, []);
 
+  // Fetch plants when a greenhouse is selected
+  useEffect(() => {
+    if (selectedGreenhouse) {
+      fetchPlantsByGreenhouse(selectedGreenhouse._id);
+    }
+  }, [selectedGreenhouse]);
+
   //to get all greenhouses from the server and display them
   const fetchGreenhouses = async () => {
     try {
@@ -68,6 +75,20 @@ const GreenHouses = () => {
     } catch (error) {
       console.error('Error fetching greenhouses:', error);
       Alert.alert('Error', 'Failed to fetch greenhouses');
+    }
+  };
+
+  // Function to fetch plants by greenhouse ID
+  const fetchPlantsByGreenhouse = async (greenhouseId) => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/GetPlantsByGreenhouse/${greenhouseId}`);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const data = await response.json();
+      setPlants(data);
+    } catch (error) {
+      console.error('Error fetching plants:', error);
+      Alert.alert('Error', 'Failed to fetch plants for this greenhouse');
     }
   };
 
@@ -132,7 +153,11 @@ const GreenHouses = () => {
   const renderPlantCard = (plant) => (
     <TouchableOpacity key={plant._id} style={styles.plantCard}>
       <Image 
-        source={{ uri: plant.Image || 'https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797' }}
+        source={{ 
+          uri: plant.Image ? 
+            (plant.Image.startsWith('http') ? plant.Image : `${getBaseUrl()}${plant.Image}`) : 
+            'https://images.unsplash.com/photo-1509587584298-0f3b3a3a1797'
+        }}
         style={styles.plantImage} 
       />
       <View style={styles.plantInfo}>
@@ -140,7 +165,7 @@ const GreenHouses = () => {
           <Text style={styles.plantName}>{plant.Name}</Text>
         </View>
         <View style={styles.plantDetails}>
-          <Text style={styles.plantSize}>Status: Healthy</Text>
+          <Text style={styles.plantSize}>Status: {plant.status || 'Healthy'}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -649,7 +674,13 @@ const GreenHouses = () => {
             />
 
             <Text style={styles.sectionTitle}>Plants</Text>
-            {plants.map(renderPlantCard)}
+            <View style={styles.plantsContainer}>
+              {plants.length > 0 ? (
+                plants.map(renderPlantCard)
+              ) : (
+                <Text style={styles.noPlantsText}>No plants in this greenhouse</Text>
+              )}
+            </View>
 
             <Text style={styles.sectionTitle}>Property</Text>
             <View style={styles.propertyCard}>
@@ -675,7 +706,7 @@ const GreenHouses = () => {
                 <View style={styles.mapOverlay}>
                   <Text style={styles.mapTitle}>{selectedGreenhouse.Name}</Text>
                   <Text style={styles.mapSubtitle}>Location: {selectedGreenhouse.Location}</Text>
-          </View>
+                </View>
               </View>
             </View>
           </View>
@@ -1148,6 +1179,16 @@ const styles = StyleSheet.create({
   resultText: {
     fontSize: 14,
     color: '#333',
+  },
+  plantsContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  noPlantsText: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
+    marginTop: 16,
   },
 });
 
