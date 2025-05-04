@@ -8,7 +8,7 @@ const cors = require('cors');
 const https = require("https");
 const multer = require('multer'); // to handle image uploads
 //const tf = require('@tensorflow/tfjs-node'); //to load a pre-trained model and make predictions
-const sharp = require('sharp'); //to resize and optimize images
+//const sharp = require('sharp'); //to resize and optimize images
 const path = require('path'); //to handle file paths
 const fs = require('fs'); //to handle file operations
 
@@ -509,3 +509,23 @@ async function loadModel() {
 
 loadModel();
 */
+
+// Manager PIN verification route
+app.post("/verifyManagerPin", async (req, res) => {
+  try {
+    const { pin } = req.body;
+    
+    // Replace this with your actual PIN verification logic
+    // For security, you should store this PIN securely (e.g., hashed in a database)
+    const validPin = "123456"; // This is just an example PIN
+    
+    if (pin === validPin) {
+      res.json({ verified: true });
+    } else {
+      res.json({ verified: false });
+    }
+  } catch (error) {
+    console.error("Error verifying PIN:", error);
+    res.status(500).json({ error: "Failed to verify PIN" });
+  }
+});

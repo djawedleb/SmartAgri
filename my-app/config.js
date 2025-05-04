@@ -3,7 +3,7 @@ export const getBaseUrl = () => {
   // For development, use the current machine's IP address
   if (__DEV__) {
     // In development, we'll use localhost
-    return 'http://192.168.1.11:8080';
+    return 'https://rnybh-105-110-58-150.a.free.pinggy.link';
   }
   
   // For production, use your production server URL

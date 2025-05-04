@@ -130,7 +130,7 @@ const ExploreContent = () => {
       <Text style={styles.ButtonText}>Log in</Text>
       </Pressable>
 
-      <Text style={styles.LoginText}>Are you a Manager?  <Link href="/" style={styles.LoginText2}>Start Here</Link> </Text>
+      <Text style={styles.LoginText}>Are you a Manager?  <Link href="/ManagerPin" style={styles.LoginText2}>Start Here</Link> </Text>
 
      </View> 
       
