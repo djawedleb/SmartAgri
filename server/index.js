@@ -11,7 +11,10 @@ const multer = require('multer'); // to handle image uploads
 //const sharp = require('sharp'); //to resize and optimize images
 const path = require('path'); //to handle file paths
 const fs = require('fs'); //to handle file operations
+const SerialPort = require('serialport'); //to handle serial communication with arduino
+const Readline = require('@serialport/parser-readline'); //to parse the data from the serial port
 
+const port = 3000;
 const app = express();
 app.use(bodyParser.json()); //so we are able to read data from the react app.js, Handles JSON data Used for API requests
 app.use(bodyParser.urlencoded({extended:true})); //Handles form data :
@@ -528,4 +531,30 @@ app.post("/verifyManagerPin", async (req, res) => {
     console.error("Error verifying PIN:", error);
     res.status(500).json({ error: "Failed to verify PIN" });
   }
+});
+
+// Initialize serial port connection
+const arduinoPort = new SerialPort({
+  path: 'COM3', // ← Change to your actual port
+  baudRate: 9600
+});
+
+const parser = arduinoPort.pipe(new Readline({ delimiter: '\n' }));
+
+let sensorData = {
+  humidity: null,
+  temperature: null
+};
+
+parser.on('data', line => {
+  const match = line.match(/Humidity:(\d+\.?\d*),Temperature:(\d+\.?\d*)/);
+  if (match) {
+    sensorData.humidity = parseFloat(match[1]);
+    sensorData.temperature = parseFloat(match[2]);
+  }
+});
+
+// API route
+app.get('/api/sensor', (req, res) => {
+  res.json(sensorData);
 });
