@@ -7,6 +7,7 @@ const ManageUsers = () => {
   const [isModalVisible, setModalVisible] = useState(false); //for the add/edit popup
   const [editingUser, setEditingUser] = useState(null); //so we can know when we are editing
   const [usersPersonal, setUsersPersonal] = useState([]); //to display the user saved data
+  const [refresh, setRefresh] = useState(false);
     
   const [newUser, setNewUser] = useState({  //to save the new user data
     username: '',
@@ -31,7 +32,7 @@ const ManageUsers = () => {
       }
     };
     fetchUsers();
-  }, [users]);
+  }, [refresh]);
 
   
 
@@ -60,6 +61,7 @@ const ManageUsers = () => {
           throw new Error('Network response was not ok');
       }
       const result = await response.json();
+      setRefresh(!refresh);
     
 
       //console.log(result);
@@ -86,6 +88,7 @@ const handleDelete = async (id) => {
              throw new Error('Network response was not ok');
          }
          const result = await response.json();
+         setRefresh(!refresh);
          //console.log(result);
 
      } catch (error) {

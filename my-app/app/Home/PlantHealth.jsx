@@ -1,10 +1,24 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, TextInput, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, TextInput, Platform, Dimensions, ActivityIndicator } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { Picker } from '@react-native-picker/picker';
 import { getBaseUrl } from '../../config';
+import FastImage from 'react-native-fast-image';
+
+const DEFAULT_PLANT_IMAGE = 'https://images.unsplash.com/photo-1518977676601-b53f82aba655';
+
+const getImageSource = (imagePath) => {
+  if (!imagePath) return { uri: DEFAULT_PLANT_IMAGE };
+  
+  const uri = imagePath.startsWith('http') ? imagePath : `${getBaseUrl()}${imagePath}`;
+  return {
+    uri,
+    priority: FastImage.priority.normal,
+    cache: FastImage.cacheControl.immutable
+  };
+};
 
 const PlantHealth = () => {
   const [selectedPlant, setSelectedPlant] = useState(null);
@@ -13,6 +27,8 @@ const PlantHealth = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [SavedPlants, setSavedPlants] = useState([]);
   const [greenhouses, setGreenhouses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGreenhousesLoaded, setIsGreenhousesLoaded] = useState(false);
 
   const [newPlant, setNewPlant] = useState({
     id: '',
@@ -22,10 +38,24 @@ const PlantHealth = () => {
     Image: null
   });
 
-  //to display the added users
+  //to display the added plants
   useEffect(() => {
-    refreshPlants();
-    fetchGreenhouses();
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        // First fetch greenhouses
+        await fetchGreenhouses();
+        // Then refresh plants which will use the fetched greenhouses
+        await refreshPlants();
+      } catch (error) {
+        console.error('Error loading data:', error);
+        Alert.alert('Error', 'Failed to load data. Please try refreshing.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   // Request permissions for image picker
@@ -168,20 +198,58 @@ const PlantHealth = () => {
       const response = await fetch(`${baseUrl}/GetPlants`);
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
-      console.log('Fetched plants:', data);
       
-      // Map greenhouse IDs to their names
-      const plantsWithGreenhouseNames = data.map(plant => {
-        const greenhouse = greenhouses.find(g => g._id === plant.Greenhouse);
-        return {
-          ...plant,
-          greenhouseName: greenhouse ? greenhouse.Name : 'Unknown Greenhouse'
-        };
-      });
-      
-      setSavedPlants(plantsWithGreenhouseNames);
+      // Wait for greenhouses to be loaded before mapping
+      if (isGreenhousesLoaded) {
+        const plantsWithGreenhouseNames = data.map(plant => {
+          const greenhouse = greenhouses.find(g => g._id === plant.Greenhouse);
+          return {
+            ...plant,
+            greenhouseName: greenhouse ? greenhouse.Name : 'Unknown Greenhouse'
+          };
+        });
+        setSavedPlants(plantsWithGreenhouseNames);
+      } else {
+        // If greenhouses aren't loaded yet, wait 2 seconds and try again
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // After waiting, check if greenhouses are loaded
+        if (isGreenhousesLoaded) {
+          const plantsWithGreenhouseNames = data.map(plant => {
+            const greenhouse = greenhouses.find(g => g._id === plant.Greenhouse);
+            return {
+              ...plant,
+              greenhouseName: greenhouse ? greenhouse.Name : 'Unknown Greenhouse'
+            };
+          });
+          setSavedPlants(plantsWithGreenhouseNames);
+        } else {
+          // If still not loaded after waiting, just set the plants without mapping
+          setSavedPlants(data);
+        }
+      }
     } catch (error) {
       console.error('Error refreshing plants:', error);
+      Alert.alert('Error', 'Failed to refresh plants');
+    }
+  };
+
+  // Add a function to refresh greenhouses
+  const refreshGreenhouses = async () => {
+    try {
+      const baseUrl = getBaseUrl();
+      console.log('Refreshing greenhouses from:', `${baseUrl}/GetGreenhouses`);
+      
+      const response = await fetch(`${baseUrl}/GetGreenhouses`);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      console.log('Refreshed greenhouses:', data);
+      setGreenhouses(data);
+    } catch (error) {
+      console.error('Error refreshing greenhouses:', error);
+      Alert.alert('Error', 'Failed to refresh greenhouses');
     }
   };
 
@@ -263,8 +331,10 @@ const PlantHealth = () => {
 
 //when editing a plant, also show an alert to confirm the action
 const handleEditPlant = (plant) => {
-  setSelectedPlant(plant);
-  //console.log(selectedPlant);
+  setSelectedPlant({
+    ...plant,
+    oldImagePath: plant.Image // Store the old image path
+  });
   setShowEditModal(true);
 };
 
@@ -302,6 +372,11 @@ const handleEditPlant = (plant) => {
           type: imageType,
           name: imageName
         });
+
+        // Include the old image path for deletion if it exists
+        if (selectedPlant.oldImagePath) {
+          formData.append('oldImagePath', selectedPlant.oldImagePath);
+        }
 
         const response = await fetch(`${baseUrl}/updatePlant/${plantId}`, {
           method: 'PUT',
@@ -378,18 +453,17 @@ const handleEditPlant = (plant) => {
           {selectedPlant && (
             <>
               <View style={styles.detailsHeader}>
-                <Image 
-                  source={{ 
-                    uri: selectedPlant.Image ? 
-                      (selectedPlant.Image.startsWith('http') ? selectedPlant.Image : `${getBaseUrl()}${selectedPlant.Image}`) : 
-                      'https://images.unsplash.com/photo-1518977676601-b53f82aba655'
-                  }} 
+                <FastImage 
+                  source={getImageSource(selectedPlant.Image)}
                   style={styles.detailsImage}
-                  onError={(e) => console.log('Image loading error:', e.nativeEvent.error)}
+                  resizeMode={FastImage.resizeMode.cover}
+                  fallback={true}
                 />
                 <View style={styles.detailsInfo}>
                   <Text style={styles.detailsName}>{selectedPlant.Name}</Text>
-                  <Text style={styles.detailsGreenhouse}>{selectedPlant.Greenhouse}</Text>
+                  <Text style={styles.detailsGreenhouse}>
+                    {greenhouses.find(g => g._id === selectedPlant.Greenhouse)?.Name || 'Unknown Greenhouse'}
+                  </Text>
                   <View style={styles.detailsStatus}>
                     <Icon name="leaf" size={16} color="#0d986a" />
                     <Text style={styles.detailsStatusText}>Healthy</Text>
@@ -464,15 +538,11 @@ const handleEditPlant = (plant) => {
               </TouchableOpacity>
               {selectedPlant?.Image && (
                 <View style={styles.selectedImageContainer}>
-                  <Image 
-                    source={{ 
-                      uri: selectedPlant.Image ? 
-                        (selectedPlant.Image.startsWith('http') ? selectedPlant.Image : `${getBaseUrl()}${selectedPlant.Image}`) : 
-                        'https://images.unsplash.com/photo-1518977676601-b53f82aba655'
-                    }} 
+                  <FastImage 
+                    source={getImageSource(selectedPlant.Image)}
                     style={styles.selectedImage} 
-                    resizeMode="cover"
-                    onError={(e) => console.log('Image loading error:', e.nativeEvent.error)}
+                    resizeMode={FastImage.resizeMode.cover}
+                    fallback={true}
                   />
                   <TouchableOpacity
                     style={styles.removeImageButton}
@@ -655,10 +725,15 @@ const handleEditPlant = (plant) => {
               </TouchableOpacity>
               {newPlant.Image && (
                 <View style={styles.selectedImageContainer}>
-                  <Image 
-                    source={{ uri: newPlant.Image }} 
+                  <FastImage 
+                    source={{ 
+                      uri: newPlant.Image,
+                      priority: FastImage.priority.high,
+                      cache: FastImage.cacheControl.immutable
+                    }} 
                     style={styles.selectedImage} 
-                    resizeMode="cover"
+                    resizeMode={FastImage.resizeMode.cover}
+                    fallback={true}
                   />
                   <TouchableOpacity
                     style={styles.removeImageButton}
@@ -734,9 +809,11 @@ const handleEditPlant = (plant) => {
       const data = await response.json();
       console.log('Fetched greenhouses:', data);
       setGreenhouses(data);
+      setIsGreenhousesLoaded(true);
     } catch (error) {
       console.error('Error fetching greenhouses:', error);
       Alert.alert('Error', 'Failed to fetch greenhouses');
+      setIsGreenhousesLoaded(false);
     }
   };
 
@@ -754,18 +831,17 @@ const handleEditPlant = (plant) => {
   const renderPlantCard = (plant) => (
     <View key={`${plant.Name}-${plant.Greenhouse}`} style={styles.card}>
       <View style={styles.cardHeader}>
-        <Image 
-          source={{ 
-            uri: plant.Image ? 
-              (plant.Image.startsWith('http') ? plant.Image : `${getBaseUrl()}${plant.Image}`) : 
-              'https://images.unsplash.com/photo-1518977676601-b53f82aba655'
-          }} 
+        <FastImage 
+          source={getImageSource(plant.Image)}
           style={styles.plantImage}
-          onError={(e) => console.log('Image loading error:', e.nativeEvent.error)}
+          resizeMode={FastImage.resizeMode.cover}
+          fallback={true}
         />
         <View style={styles.plantInfo}>
           <Text style={styles.plantName}>{plant.Name}</Text>
-          <Text style={styles.greenhouseName}>{plant.greenhouseName}</Text>
+          <Text style={styles.greenhouseName}>
+          {greenhouses.find(g => g._id === plant.Greenhouse)?.Name || 'Unknown Greenhouse'}
+          </Text>
           <View style={styles.statusContainer}>
             <Icon name="leaf" size={16} color="#0d986a" />
             <Text style={styles.statusText}>{plant.status || 'Healthy'}</Text>
@@ -774,7 +850,10 @@ const handleEditPlant = (plant) => {
         <View style={styles.cardHeaderActions}>
           <TouchableOpacity 
             style={styles.editButton}
-            onPress={() => handleEditPlant(plant)}
+            onPress={() => {
+              refreshGreenhouses();
+              handleEditPlant(plant);
+            }}
           >
             <Icon name="pencil" size={20} color="#0d986a" />
           </TouchableOpacity>
@@ -826,36 +905,20 @@ const handleEditPlant = (plant) => {
     </View>
   );
 
-  // Add a function to refresh greenhouses
-  const refreshGreenhouses = async () => {
-    try {
-      const baseUrl = getBaseUrl();
-      console.log('Refreshing greenhouses from:', `${baseUrl}/GetGreenhouses`);
-      
-      const response = await fetch(`${baseUrl}/GetGreenhouses`);
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const data = await response.json();
-      console.log('Refreshed greenhouses:', data);
-      setGreenhouses(data);
-    } catch (error) {
-      console.error('Error refreshing greenhouses:', error);
-      Alert.alert('Error', 'Failed to refresh greenhouses');
-    }
-  };
+  
 
   //Main page component
   return (
-    <View style={styles.container}>
+    <View style={styles.container} >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Plant Health</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
             style={styles.refreshButton}
             onPress={() => {
-              refreshPlants();
-              refreshGreenhouses();
+              setIsLoading(true);
+              Promise.all([refreshPlants(), fetchGreenhouses()])
+                .finally(() => setIsLoading(false));
             }}
           >
             <Icon name="refresh" size={24} color="#0d986a" />
@@ -866,13 +929,19 @@ const handleEditPlant = (plant) => {
         </View>
       </View>
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {SavedPlants.map((plant) => renderPlantCard(plant))}
-      </ScrollView>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0d986a" />
+          <Text style={styles.loadingText}>Loading plants...</Text>
+        </View>
+      ) : (
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {SavedPlants.map((plant) => renderPlantCard(plant))}
+        </ScrollView>
+      )}
 
       {renderDetailsModal()}
       {renderEditModal()}
@@ -880,7 +949,10 @@ const handleEditPlant = (plant) => {
 
       <TouchableOpacity 
         style={styles.addButton}
-        onPress={() => setShowAddModal(true)}
+        onPress={() => {
+          refreshGreenhouses();
+          setShowAddModal(true);
+        }}
       >
         <Icon name="plus" size={24} color="#fff" />
       </TouchableOpacity>
@@ -929,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 80,
   },
   card: {
     backgroundColor: '#fff',
@@ -1353,7 +1425,17 @@ const styles = StyleSheet.create({
   },
   greenhouseOptionTextSelected: {
     color: '#fff',
-  }
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
 });
 
 export default PlantHealth;

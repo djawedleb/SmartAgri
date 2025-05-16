@@ -133,6 +133,7 @@ app.post("/AddUser", function(req, res){
     })
       NewLogin.save(); //saving it to the DB of logins//
       console.log("item saved successfully");
+      res.json({ message: "User added successfully" });
     });
 
 
@@ -281,8 +282,17 @@ app.post("/DeletePlant", async function(req, res){
    app.put("/updatePlant/:id", upload.single('image'), async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, greenhouse } = req.body;
+      const { name, greenhouse, oldImagePath } = req.body;
       const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+
+      // If there's a new image and an old image path, delete the old image
+      if (imagePath && oldImagePath) {
+        const oldImageFullPath = path.join(__dirname, oldImagePath);
+        if (fs.existsSync(oldImageFullPath)) {
+          fs.unlinkSync(oldImageFullPath);
+          console.log('Deleted old image file:', oldImageFullPath);
+        }
+      }
 
       const updateData = {
         Name: name,
@@ -533,28 +543,3 @@ app.post("/verifyManagerPin", async (req, res) => {
   }
 });
 
-// Initialize serial port connection
-const arduinoPort = new SerialPort({
-  path: 'COM3', // ← Change to your actual port
-  baudRate: 9600
-});
-
-const parser = arduinoPort.pipe(new Readline({ delimiter: '\n' }));
-
-let sensorData = {
-  humidity: null,
-  temperature: null
-};
-
-parser.on('data', line => {
-  const match = line.match(/Humidity:(\d+\.?\d*),Temperature:(\d+\.?\d*)/);
-  if (match) {
-    sensorData.humidity = parseFloat(match[1]);
-    sensorData.temperature = parseFloat(match[2]);
-  }
-});
-
-// API route
-app.get('/api/sensor', (req, res) => {
-  res.json(sensorData);
-});
