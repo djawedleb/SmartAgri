@@ -96,6 +96,11 @@ const PlantHealth = () => {
 
   const [showEditStateModal, setShowEditStateModal] = useState(false);
 
+  const [selectedFilter, setSelectedFilter] = useState(null);
+  const [showFilterPicker, setShowFilterPicker] = useState(false);
+
+  const [showCustomFilterModal, setShowCustomFilterModal] = useState(false);
+
   //to display the added plants
   useEffect(() => {
     const loadData = async () => {
@@ -115,6 +120,14 @@ const PlantHealth = () => {
 
     loadData();
   }, []);
+
+  // Add a separate useEffect to monitor greenhouses state
+  useEffect(() => {
+    if (greenhouses.length > 0) {
+      console.log('Greenhouses loaded:', greenhouses.map(g => g.Name));
+      setIsGreenhousesLoaded(true);
+    }
+  }, [greenhouses]);
 
   // Request permissions for image picker
   useEffect(() => {
@@ -1086,11 +1099,23 @@ const handleEditPlant = (plant) => {
       }
       const data = await response.json();
       console.log('Fetched greenhouses:', data);
+      
+      if (!Array.isArray(data)) {
+        console.error('Invalid greenhouse data received:', data);
+        throw new Error('Invalid greenhouse data received');
+      }
+
+      if (data.length === 0) {
+        console.log('No greenhouses found');
+      } else {
+        console.log(`Found ${data.length} greenhouses`);
+      }
+
       setGreenhouses(data);
       setIsGreenhousesLoaded(true);
     } catch (error) {
       console.error('Error fetching greenhouses:', error);
-      Alert.alert('Error', 'Failed to fetch greenhouses');
+      Alert.alert('Error', 'Failed to fetch greenhouses. Please try refreshing.');
       setIsGreenhousesLoaded(false);
     }
   };
@@ -1200,7 +1225,97 @@ const handleEditPlant = (plant) => {
     </View>
   );
 
-  
+
+  const handleGreenhouseFilter = async (greenhouseId) => {
+    setSelectedFilter(greenhouseId);
+    setShowFilterPicker(false);
+    setIsLoading(true);
+    try {
+      if (greenhouseId) {
+        const baseUrl = getBaseUrl();
+        const response = await fetch(`${baseUrl}/GetPlantsByGreenhouse/${greenhouseId}`);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        const plantsWithGreenhouseNames = data.map(plant => ({
+          ...plant,
+          greenhouseName: greenhouses.find(g => g._id === plant.Greenhouse)?.Name || 'Unknown Greenhouse'
+        }));
+        setSavedPlants(plantsWithGreenhouseNames);
+      } else {
+        await refreshPlants();
+      }
+    } catch (error) {
+      console.error('Error filtering plants:', error);
+      Alert.alert('Error', 'Failed to filter plants');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFilterPress = () => {
+    if (!isGreenhousesLoaded || greenhouses.length === 0) {
+      Alert.alert('Loading...', 'Please wait while greenhouses are loaded');
+      return;
+    }
+    setShowCustomFilterModal(true);
+  };
+
+  // Custom filter modal
+const renderCustomFilterModal = () => (
+  <Modal
+    visible={showCustomFilterModal}
+    transparent
+    animationType="fade"
+    onRequestClose={() => setShowCustomFilterModal(false)}
+  >
+    <View style={{
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.3)',
+      justifyContent: 'center',
+      alignItems: 'center'
+    }}>
+      <View style={{
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 24,
+        width: '80%',
+        alignItems: 'center'
+      }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>
+          Select Greenhouse
+        </Text>
+        <TouchableOpacity
+          style={{ padding: 12, width: '100%', alignItems: 'center' }}
+          onPress={() => {
+            handleGreenhouseFilter('');
+            setShowCustomFilterModal(false);
+          }}
+        >
+          <Text style={{ fontSize: 16, color: 'green' }}>All Greenhouses</Text>
+        </TouchableOpacity>
+        {greenhouses.map(greenhouse => (
+          <TouchableOpacity
+            key={greenhouse._id}
+            style={{ padding: 12, width: '100%', alignItems: 'center' }}
+            onPress={() => {
+              handleGreenhouseFilter(greenhouse._id);
+              setShowCustomFilterModal(false);
+            }}
+          >
+            <Text style={{ fontSize: 16, color: '#333' }}>{greenhouse.Name}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity
+          style={{ marginTop: 12, padding: 8 }}
+          onPress={() => setShowCustomFilterModal(false)}
+        >
+          <Text style={{ color: 'red', fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
+
 
   //Main page component
   return (
@@ -1218,11 +1333,28 @@ const handleEditPlant = (plant) => {
           >
             <Icon name="refresh" size={24} color="#0d986a" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterButton}>
-            <Icon name="filter-variant" size={24} color="#0d986a" />
+          <TouchableOpacity 
+             style={[styles.filterButton, selectedFilter && styles.filterButtonActive]}
+             onPress={handleFilterPress}
+          >
+            <Icon name="filter-variant" size={24} color={selectedFilter ? "#fff" : "#0d986a"} />
           </TouchableOpacity>
         </View>
       </View>
+
+      {selectedFilter && (
+        <View style={styles.filterIndicator}>
+          <Text style={styles.filterText}>
+            Showing plants from: {greenhouses.find(g => g._id === selectedFilter)?.Name || 'Unknown Greenhouse'}
+          </Text>
+          <TouchableOpacity 
+            style={styles.clearFilterButton}
+            onPress={() => handleGreenhouseFilter('')}
+          >
+            <Icon name="close" size={16} color="#666" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -1234,7 +1366,16 @@ const handleEditPlant = (plant) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {SavedPlants.map((plant) => renderPlantCard(plant))}
+          {SavedPlants.length > 0 ? (
+            SavedPlants.map((plant) => renderPlantCard(plant))
+          ) : (
+            <View style={styles.noPlantsContainer}>
+              <Icon name="leaf-off" size={48} color="#ccc" />
+              <Text style={styles.noPlantsText}>
+                {selectedFilter ? 'No plants found in this greenhouse' : 'No plants found'}
+              </Text>
+            </View>
+          )}
         </ScrollView>
       )}
 
@@ -1252,6 +1393,8 @@ const handleEditPlant = (plant) => {
       >
         <Icon name="plus" size={24} color="#fff" />
       </TouchableOpacity>
+
+      {renderCustomFilterModal()}
     </View>
   );
 };
@@ -1803,6 +1946,61 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  greenhouseFilter: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    width: 150,
+    backgroundColor: '#f1f9f5',
+    borderRadius: 20,
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  greenhousePicker: {
+    width: '100%',
+    height: 36,
+    backgroundColor: 'transparent',
+  },
+  filterButtonActive: {
+    backgroundColor: '#0d986a',
+  },
+  filterIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f9f5',
+    padding: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+  },
+  filterText: {
+    color: '#0d986a',
+    fontSize: 14,
+    marginRight: 8,
+  },
+  clearFilterButton: {
+    padding: 4,
+  },
+  noPlantsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  noPlantsText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 
