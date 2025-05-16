@@ -5,8 +5,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { getBaseUrl } from '../../config';
+import { useUser } from '../context/UserContext';
 
 const GreenHouses = () => {
+
+  const { isPageVisible } = useUser();
+
   const GreenHouseImg = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae";
   const [greenhouses, setGreenhouses] = useState([]);
   const [selectedGreenhouse, setSelectedGreenhouse] = useState(null);
@@ -585,46 +589,48 @@ const GreenHouses = () => {
         style={styles.greenhouseImage} 
       />
       <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
+        <View style={[styles.cardHeader, !isPageVisible('Sensors') && styles.centeredHeader]}>
           <Text style={styles.greenhouseName}>{greenhouse.Name}</Text>
-          <View style={styles.cardActions}>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => {
-                setIsEditMode(true);
-                setSelectedGreenhouse(greenhouse);
-                setFormData({
-                  name: greenhouse.Name,
-                  location: greenhouse.Location,
-                  image: greenhouse.Image
-                });
-                setIsModalVisible(true);
-              }}
-            >
-              <Icon name="pencil" size={20} color="#0d986a" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.removeButton]}
-              onPress={() => {
-                Alert.alert(
-                  'Remove Greenhouse',
-                  'Are you sure you want to remove this greenhouse?',
-                  [
-                    {
-                      text: 'Cancel',
-                      style: 'cancel',
-                    },
-                    {
-                      text: 'Remove',
-                      onPress: () => handleDeleteGreenhouse(greenhouse._id),
-                    },
-                  ],
-                );
-              }}
-            >
-              <Icon name="delete" size={20} color="#FF4444" />
-            </TouchableOpacity>
-          </View>
+          {isPageVisible('Sensors') && (
+            <View style={styles.cardActions}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => {
+                  setIsEditMode(true);
+                  setSelectedGreenhouse(greenhouse);
+                  setFormData({
+                    name: greenhouse.Name,
+                    location: greenhouse.Location,
+                    image: greenhouse.Image
+                  });
+                  setIsModalVisible(true);
+                }}
+              >
+                <Icon name="pencil" size={20} color="#0d986a" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.removeButton]}
+                onPress={() => {
+                  Alert.alert(
+                    'Remove Greenhouse',
+                    'Are you sure you want to remove this greenhouse?',
+                    [
+                      {
+                        text: 'Cancel',
+                        style: 'cancel',
+                      },
+                      {
+                        text: 'Remove',
+                        onPress: () => handleDeleteGreenhouse(greenhouse._id),
+                      },
+                    ],
+                  );
+                }}
+              >
+                <Icon name="delete" size={20} color="#FF4444" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
         <View style={styles.readingsContainer}>
           <View style={styles.readingItem}>
@@ -775,6 +781,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  centeredHeader: {
+    justifyContent: 'center',
   },
   cardActions: {
     flexDirection: 'row',

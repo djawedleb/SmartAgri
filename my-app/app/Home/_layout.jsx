@@ -1,6 +1,6 @@
 import { Tabs, useRouter } from 'expo-router';
 import React, {useState, useEffect} from 'react';
-import { Platform } from 'react-native';
+import { Platform, Dimensions } from 'react-native';
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
@@ -9,17 +9,25 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { View, Text, StyleSheet, Image, Pressable, Modal, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { TouchableWithoutFeedback } from 'react-native'; 
+import { useUser } from '../context/UserContext';
+
 
 
 export default function TabLayout() {
+
+  const { isPageVisible } = useUser();
+
   const colorScheme = useColorScheme();
   const router = useRouter();
+  const screenWidth = Dimensions.get('window').width;
+  const leftPadding = screenWidth / 5;
 
   const [isSidebarVisible, setSidebarVisible] = useState(false);  
   const [isHomeExpanded, setIsHomeExpanded] = useState(false);
 
   //React.useRef(): Creates a mutable reference that persists across re-renders ( store values that shouldn't trigger re-renders when changed)
   const slideAnim = React.useRef(new Animated.Value(-350)).current;
+  const submenuHeight = React.useRef(new Animated.Value(0)).current;
 
   function Menu() {
     setSidebarVisible(true);
@@ -73,6 +81,17 @@ export default function TabLayout() {
     );
   }
 
+  const toggleHome = () => {
+    // Prevent menu from closing when toggling the submenu
+    if (isSidebarVisible) {
+      setIsHomeExpanded(!isHomeExpanded);
+      Animated.timing(submenuHeight, {
+        toValue: isHomeExpanded ? 0 : 1,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    }
+  };
 
   function Sidebar({ isVisible, onClose }) {
     const handleAiRecommendations = () => {
@@ -92,7 +111,7 @@ export default function TabLayout() {
 
     const handleHome = () => {
       onClose();
-      router.push('/Home/');
+      router.replace('/Home/');
     };
 
     return (
@@ -123,21 +142,36 @@ export default function TabLayout() {
                   <Icon name="home-outline" size={24} color="#0d986a" />
                   <Text style={styles.sidebarText}>Home</Text>
                 </Pressable>
-                <Pressable onPress={(e) => {
-                  e.stopPropagation();
-                  setIsHomeExpanded(!isHomeExpanded);
-                }}>
+                <Pressable 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    toggleHome();
+                  }}
+                >
                   <Icon 
                     name={isHomeExpanded ? "chevron-down" : "chevron-right"} 
                     size={24} 
                     color="#666" 
-                    style={styles.chevron} 
+                    style={styles.chevron}                
                   />
                 </Pressable>
               </View>
 
               {isHomeExpanded && (
-                <View style={styles.submenu}>
+                <Animated.View style={[styles.submenu, {
+                  maxHeight: submenuHeight.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 200]
+                  }),
+                  opacity: submenuHeight
+                }]}>
+                  <Pressable 
+                    style={styles.submenuItem}
+                    onPress={() => handleNavigation('/Home/')}
+                  >
+                    <Icon name="weather-lightning" size={20} color="#0d986a" />
+                    <Text style={styles.submenuText}>Weather</Text>
+                  </Pressable>
                   <Pressable 
                     style={styles.submenuItem}
                     onPress={() => handleNavigation('/Home/PlantHealth')}
@@ -152,13 +186,15 @@ export default function TabLayout() {
                     <Icon name="greenhouse" size={20} color="#0d986a" />
                     <Text style={styles.submenuText}>GreenHouses</Text>
                   </Pressable>
-                  <Pressable 
-                    style={styles.submenuItem}
-                    onPress={() => handleNavigation('/Home/Sensors')}
-                  >
-                    <Icon name="chip" size={20} color="#0d986a" />
-                    <Text style={styles.submenuText}>Sensors</Text>
-                  </Pressable>
+                  {isPageVisible('Sensors') && (
+                    <Pressable 
+                      style={styles.submenuItem}
+                      onPress={() => handleNavigation('/Home/Sensors')}
+                    >
+                      <Icon name="chip" size={20} color="#0d986a" />
+                      <Text style={styles.submenuText}>Sensors</Text>
+                    </Pressable>
+                  )}
                   <Pressable 
                     style={styles.submenuItem}
                     onPress={handleAiRecommendations}
@@ -166,10 +202,10 @@ export default function TabLayout() {
                     <Icon name="brain" size={20} color="#0d986a" />
                     <Text style={styles.submenuText}>AI Recommendations</Text>
                   </Pressable>
-                </View>
+                </Animated.View>
               )}
 
-              <Pressable 
+              {isPageVisible('ManageUsers') && (<Pressable 
                 style={styles.sidebarItem}
                 onPress={handleManageUsers}
               >
@@ -177,7 +213,7 @@ export default function TabLayout() {
                 <Text style={styles.sidebarText}>Manage Users</Text>
                 <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
               </Pressable>
-
+ )}
               <Pressable 
                 style={styles.sidebarItem}
                 onPress={() => handleNavigation('/Home/Account')}
@@ -204,20 +240,103 @@ export default function TabLayout() {
     );
   }
 
+  // Define the tabs based on user role
+  const baseTabs = [
+    {
+      name: "index",
+      options: {
+        title: '',
+        tabBarIcon: ({ color }) => <Icon name="home-outline" size={30} color={color} />,
+      }
+    },
+    {
+      name: "PlantHealth",
+      options: {
+        title: '',
+        tabBarIcon: ({ color }) => <Icon name="sprout" size={30} color={color} />,
+      }
+    },
+    {
+      name: "GreenHouses",
+      options: {
+        title: '',
+        tabBarIcon: ({ color }) => <Icon name="greenhouse" size={30} color={color} />,
+      }
+    },
+    {
+      name: "AiRecommendations",
+      options: {
+        title: '',
+        tabBarIcon: ({ color }) => <Icon name="brain" size={28} color={color} />,
+      }
+    },
+    {
+      name: "Account",
+      options: {
+        title: '',
+        href: null,
+        tabBarStyle: { display: 'none' },
+      }
+    },
+    {
+      name: "ManageUsers",
+      options: {
+        title: '',
+        href: null,
+        tabBarStyle: { display: 'none' },
+      }
+    }
+  ];
+
+  // Add Sensors tab only if user has access
+  const tabs = isPageVisible('Sensors') 
+    ? [
+        ...baseTabs.slice(0, 3),
+        {
+          name: "Sensors",
+          options: {
+            title: '',
+            tabBarIcon: ({ color }) => <Icon name="chip" size={30} color={color} />,
+          }
+        },
+        ...baseTabs.slice(3)
+      ]
+    : baseTabs;
+
   return (
     <>
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: true,
         headerTitle: () => <HeaderTitle />,
         tabBarActiveTintColor: '#0d986a',
         tabBarInactiveTintColor: '#666',
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
+        tabBarStyle: {
+          backgroundColor: '#161718',
+          paddingTop: 10,
+          borderTopColor: '#161718',
+          ...Platform.select({
+            ios: {
+              height: 45,
+              borderTopRightRadius: 20,
+              borderTopLeftRadius: 20,
+            },
+            default: {
+              height: 55,
+              borderTopRightRadius: 20,
+              borderTopLeftRadius: 20,
+            },
+          }),
+        },
         tabBarLabelStyle: {
+          textAlign: 'center',
+          top: 8,
           fontWeight: '500',
           fontSize: 12,
         },
+        tabBarButton: !isPageVisible(route.name) ? () => null : undefined,
         headerStyle: Platform.select({
           ios: {
             height: 100,
@@ -242,6 +361,7 @@ export default function TabLayout() {
             borderwidth: 0.4,
             paddingBottom: 0,
             paddingTop: 0,
+          
           },
           default: {
             backgroundColor: 'white',
@@ -259,59 +379,16 @@ export default function TabLayout() {
           height: 55,
           paddingBottom: 0,
           paddingTop: 0,
+          paddingLeft: leftPadding,
         },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: '',
-          tabBarIcon: ({ color }) => <Icon name="home-outline" size={30} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="PlantHealth"
-        options={{
-          title: '',
-          tabBarIcon: ({ color }) => <Icon name="sprout" size={30} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="GreenHouses"
-        options={{
-          title: '',
-          tabBarIcon: ({ color }) => <Icon name="greenhouse" size={30} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="Sensors"
-        options={{
-          title: '',
-          tabBarIcon: ({ color }) => <Icon name="chip" size={28} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="AiRecommendations"
-        options={{
-          title: '',
-          tabBarIcon: ({ color }) => <Icon name="brain" size={28} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="Account"
-        options={{
-          title: '',
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="ManageUsers"
-        options={{
-          title: '',
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
+      })}>
+      {tabs.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={tab.options}
+        />
+      ))}
     </Tabs>
 
     <Sidebar isVisible={isSidebarVisible} onClose={onClose} />
@@ -385,6 +462,7 @@ const styles = StyleSheet.create({
   submenu: {
     paddingLeft: 20,
     backgroundColor: '#f9f9f9',
+    overflow: 'hidden',
   },
   submenuItem: {
     flexDirection: 'row',

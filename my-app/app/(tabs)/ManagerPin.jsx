@@ -3,10 +3,12 @@ import React, { useState, useRef, useEffect } from 'react'
 import { router } from 'expo-router'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { getBaseUrl } from '../../config'
+import { useUser } from '../context/UserContext'
 
 const { height } = Dimensions.get('window');
 
 const ManagerPin = () => {
+  const { setUserRole } = useUser();
   const [pin, setPin] = useState(['', '', '', '', '', ''])
   const [isPinVisible, setIsPinVisible] = useState(false)
   const inputRefs = useRef([])
@@ -27,6 +29,7 @@ const ManagerPin = () => {
       const result = await response.json()
 
       if (result.verified) {
+        setUserRole(null)
         router.push('/Home/')
       } else {
         Alert.alert('Error', 'Invalid PIN')

@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system';
 import { Picker } from '@react-native-picker/picker';
 import { getBaseUrl } from '../../config';
 import FastImage from 'react-native-fast-image';
-
+import { useUser } from '../context/UserContext';
 const DEFAULT_PLANT_IMAGE = 'https://images.unsplash.com/photo-1518977676601-b53f82aba655';
 
 const getImageSource = (imagePath) => {
@@ -21,6 +21,53 @@ const getImageSource = (imagePath) => {
 };
 
 const PlantHealth = () => {
+
+   const { isPageVisible } = useUser();
+
+  // Function to calculate time difference
+  const calculateTimeDiff = (lastChecked) => {
+    try {
+      const now = new Date();
+      const [lastHour, lastMinute] = lastChecked.split(':');
+      const lastCheckedDate = new Date();
+      lastCheckedDate.setHours(parseInt(lastHour), parseInt(lastMinute), 0, 0);
+      
+      const diff = Math.floor((now - lastCheckedDate) / (1000 * 60));
+      const hours = Math.floor(diff / 60);
+      const minutes = diff % 60;
+      
+      return `${hours}h ${minutes}m`;
+    } catch (error) {
+      return '0h 0m';
+    }
+  };
+
+  // Function to calculate days and hours from watering interval
+  const calculateWateringTime = (interval) => {
+    try {
+      const [day, hour] = interval.split(' ');
+      const days = parseInt(day);
+      const hours = parseInt(hour);
+      
+      return `${days}d ${hours}h`;
+    } catch (error) {
+      return '0d 0h';
+    }
+  };
+
+// Function to calculate months and days from fertilizer interval
+  const calculateFertilizerTime = (interval) => {
+    try {
+      const [month, day] = interval.split(' ');
+      const months = parseInt(month);
+      const days = parseInt(day);
+      
+      return `${months}mo ${days}d`;
+    } catch (error) {
+      return '0mo 0d';
+    }
+  };
+
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -37,6 +84,17 @@ const PlantHealth = () => {
     status: 'healthy',
     Image: null
   });
+
+  const [selectedPlantState, setSelectedPlantState] = useState(null);
+  const [lastCheckedHour, setLastCheckedHour] = useState('8');
+  const [lastCheckedMinute, setLastCheckedMinute] = useState('0');
+  const [wateringDay, setWateringDay] = useState('1'); 
+  const [wateringHour, setWateringHour] = useState('8'); 
+  const [fertilizerMonth, setFertilizerMonth] = useState('1');
+  const [fertilizerDay, setFertilizerDay] = useState('1');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [showEditStateModal, setShowEditStateModal] = useState(false);
 
   //to display the added plants
   useEffect(() => {
@@ -68,6 +126,7 @@ const PlantHealth = () => {
     })();
   }, []);
 
+  
   const handleViewDetails = (plant) => {
     setSelectedPlant(plant);
     //console.log(selectedPlant);
@@ -419,6 +478,213 @@ const handleEditPlant = (plant) => {
     }
   };
 
+  const handleEditState = (plant) => {
+    setSelectedPlantState(plant);
+    setShowEditStateModal(true);
+    // Set initial values based on plant's current state
+    if (plant.lastChecked) {
+      const [hour, minute] = plant.lastChecked.split(':');
+      setLastCheckedHour(hour);
+      setLastCheckedMinute(minute);
+    }
+    if (plant.wateringInterval) {
+      const [day, hour] = plant.wateringInterval.split(' ');
+      setWateringDay(day);
+      setWateringHour(hour);
+    }
+    if (plant.fertilizerInterval) {
+      const [month, day] = plant.fertilizerInterval.split(' ');
+      setFertilizerMonth(month);
+      setFertilizerDay(day);
+    }
+  };
+
+  const saveStateChanges = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Validate inputs before sending
+      if (!lastCheckedHour || !lastCheckedMinute || !wateringDay || !wateringHour || !fertilizerMonth || !fertilizerDay) {
+        Alert.alert('Error', 'All fields are required');
+        return;
+      }
+
+      const response = await fetch(`${getBaseUrl()}/api/plants/${selectedPlantState._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lastChecked: `${lastCheckedHour}:${lastCheckedMinute}`,
+          wateringInterval: `${wateringDay} ${wateringHour}`,
+          fertilizerInterval: `${fertilizerMonth} ${fertilizerDay}`
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update plant state');
+      }
+
+      // Update the plant in your local state
+      setSelectedPlantState(data);
+      setShowEditStateModal(false);
+      // Refresh the plants list
+      refreshPlants();
+      
+      Alert.alert('Success', 'Plant state updated successfully');
+    } catch (error) {
+      console.error('Error updating plant state:', error);
+      Alert.alert('Error', error.message || 'Failed to update plant state');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderEditStateModal = () => {
+    if (!showEditStateModal) return null;
+
+    return (
+      <Modal
+        visible={showEditStateModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEditStateModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Plant State</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.modalLabel}>Last Checked</Text>
+              <View style={[styles.inputRow, { justifyContent: 'space-between' }]}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Picker
+                    style={styles.picker}
+                    selectedValue={lastCheckedHour}
+                    onValueChange={setLastCheckedHour}
+                  >
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <Picker.Item
+                        key={i}
+                        label={i < 10 ? `0${i}` : `${i}`}
+                        value={`${i}`}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Picker
+                    style={styles.picker}
+                    selectedValue={lastCheckedMinute}
+                    onValueChange={setLastCheckedMinute}
+                  >
+                    {Array.from({ length: 60 }, (_, i) => (
+                      <Picker.Item
+                        key={i}
+                        label={i < 10 ? `0${i}` : `${i}`}
+                        value={`${i}`}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.modalLabel}>Watering Interval</Text>
+              <View style={[styles.inputRow, { justifyContent: 'space-between' }]}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Picker
+                    style={styles.picker}
+                    selectedValue={wateringDay}
+                    onValueChange={setWateringDay}
+                  >
+                    {Array.from({ length: 31 }, (_, i) => (
+                      <Picker.Item
+                        key={i + 1}
+                        label={`Day ${i + 1}`}
+                        value={`${i + 1}`}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Picker
+                    style={styles.picker}
+                    selectedValue={wateringHour}
+                    onValueChange={setWateringHour}
+                  >
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <Picker.Item
+                        key={i}
+                        label={i < 10 ? `0${i}:00` : `${i}:00`}
+                        value={`${i}`}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.modalLabel}>Fertilizer Interval</Text>
+              <View style={[styles.inputRow, { justifyContent: 'space-between' }]}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Picker
+                    style={styles.picker}
+                    selectedValue={fertilizerMonth}
+                    onValueChange={setFertilizerMonth}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <Picker.Item
+                        key={i + 1}
+                        label={`Month ${i + 1}`}
+                        value={`${i + 1}`}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Picker
+                    style={styles.picker}
+                    selectedValue={fertilizerDay}
+                    onValueChange={setFertilizerDay}
+                  >
+                    {Array.from({ length: 31 }, (_, i) => (
+                      <Picker.Item
+                        key={i + 1}
+                        label={`Day ${i + 1}`}
+                        value={`${i + 1}`}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowEditStateModal(false)}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, isSaving && styles.disabledButton]}
+                onPress={saveStateChanges}
+                disabled={isSaving}
+              >
+                <Text style={styles.buttonText}>{isSaving ? 'Saving...' : 'Save'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   // Render the details modal with plant information when clicking on View Details button
   const renderDetailsModal = () => (
     <Modal
@@ -432,18 +698,31 @@ const handleEditPlant = (plant) => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Plant Details</Text>
             <View style={styles.modalHeaderActions}>
+              {!isPageVisible && (
               <TouchableOpacity 
                 style={styles.modalActionButton}
                 onPress={() => setShowEditModal(true)}
               >
                 <Icon name="pencil" size={24} color="#0d986a" />
               </TouchableOpacity>
+              )}
+               {!isPageVisible && (
               <TouchableOpacity 
                 style={styles.modalActionButton}
                 onPress={() => handleRemovePlant(selectedPlant.id)}
               >
                 <Icon name="delete" size={24} color="#ff4444" />
               </TouchableOpacity>
+              )}
+
+            {isPageVisible && (
+              <TouchableOpacity 
+                style={styles.modalActionButton}
+                onPress={() => handleEditState(selectedPlant)}
+              >
+                <Icon name="pencil" size={24} color="#0d986a" />
+              </TouchableOpacity>
+              )} 
               <TouchableOpacity onPress={() => setShowDetails(false)}>
                 <Icon name="close" size={24} color="#0d986a" />
               </TouchableOpacity>
@@ -485,15 +764,16 @@ const handleEditPlant = (plant) => {
                 <Text style={styles.detailsSectionTitle}>Health History</Text>
                 <View style={styles.historyItem}>
                   <Icon name="check-circle" size={20} color="#0d986a" />
-                  <Text style={styles.historyText}>Last check: 2 hours ago</Text>
+                  <Text style={styles.historyText}>Last checked: {calculateTimeDiff(selectedPlant.lastChecked)}</Text>
+                </View>
+      
+                <View style={styles.historyItem}>
+                  <Icon name="check-circle" size={20} color="#0d986a" />
+                  <Text style={styles.historyText}>Last Watering: {calculateWateringTime(selectedPlant.wateringInterval)}</Text>
                 </View>
                 <View style={styles.historyItem}>
                   <Icon name="check-circle" size={20} color="#0d986a" />
-                  <Text style={styles.historyText}>Watering: 4 hours ago</Text>
-                </View>
-                <View style={styles.historyItem}>
-                  <Icon name="check-circle" size={20} color="#0d986a" />
-                  <Text style={styles.historyText}>Fertilizer: 1 week ago</Text>
+                  <Text style={styles.historyText}>Last Fertilizer: {calculateFertilizerTime(selectedPlant.fertilizerInterval)}</Text>
                 </View>
               </View>
             </>
@@ -689,98 +969,96 @@ const handleEditPlant = (plant) => {
         });
       }}
     >
-      <View style={styles.modalOverlay}>
-        <ScrollView>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Plant</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowAddModal(false);
-                  setNewPlant({
-                    id: '',
-                    Name: '',
-                    Greenhouse: '',
-                    status: 'healthy',
-                    Image: null
-                  });
-                }}
-                style={styles.closeButton}
-              >
-                <Icon name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Image Upload Section */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Image</Text>
-              <TouchableOpacity 
-                style={styles.imagePickerButton} 
-                onPress={handleImageSelect}
-              >
-                <Icon name="image-plus" size={24} color="#666" />
-                <Text style={styles.imagePickerText}>
-                  {newPlant.Image ? 'Change Image' : 'Choose Image'}
-                </Text>
-              </TouchableOpacity>
-              {newPlant.Image && (
-                <View style={styles.selectedImageContainer}>
-                  <FastImage 
-                    source={{ 
-                      uri: newPlant.Image,
-                      priority: FastImage.priority.high,
-                      cache: FastImage.cacheControl.immutable
-                    }} 
-                    style={styles.selectedImage} 
-                    resizeMode={FastImage.resizeMode.cover}
-                    fallback={true}
-                  />
-                  <TouchableOpacity
-                    style={styles.removeImageButton}
-                    onPress={() => setNewPlant(prev => ({ ...prev, Image: null }))}
-                  >
-                    <Icon name="close-circle" size={24} color="#FF4444" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            {/* Name Input */}
-            <Text style={styles.inputLabel}>Name *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter plant name"
-              value={newPlant.Name}
-              onChangeText={(text) => setNewPlant(prev => ({ ...prev, Name: text }))}
-            />
-
-            {/* Greenhouse Selection */}
-            <Text style={styles.inputLabel}>Greenhouse *</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={newPlant.Greenhouse}
-                style={styles.picker}
-                onValueChange={(itemValue) => setNewPlant(prev => ({ ...prev, Greenhouse: itemValue }))}
-              >
-                <Picker.Item label="Select a greenhouse" value="" />
-                {greenhouses.map((greenhouse) => (
-                  <Picker.Item 
-                    key={greenhouse._id} 
-                    label={greenhouse.Name} 
-                    value={greenhouse._id} 
-                  />
-                ))}
-              </Picker>
-            </View>
-
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Add New Plant</Text>
             <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleAddPlant}
+              onPress={() => {
+                setShowAddModal(false);
+                setNewPlant({
+                  id: '',
+                  Name: '',
+                  Greenhouse: '',
+                  status: 'healthy',
+                  Image: null
+                });
+              }}
+              style={styles.closeButton}
             >
-              <Text style={styles.submitButtonText}>Add Plant</Text>
+              <Icon name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
-        </ScrollView>
+
+          {/* Image Upload Section */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Image</Text>
+            <TouchableOpacity 
+              style={styles.imagePickerButton} 
+              onPress={handleImageSelect}
+            >
+              <Icon name="image-plus" size={24} color="#666" />
+              <Text style={styles.imagePickerText}>
+                {newPlant.Image ? 'Change Image' : 'Choose Image'}
+              </Text>
+            </TouchableOpacity>
+            {newPlant.Image && (
+              <View style={styles.selectedImageContainer}>
+                <FastImage 
+                  source={{ 
+                    uri: newPlant.Image,
+                    priority: FastImage.priority.high,
+                    cache: FastImage.cacheControl.immutable
+                  }} 
+                  style={styles.selectedImage} 
+                  resizeMode={FastImage.resizeMode.cover}
+                  fallback={true}
+                />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => setNewPlant(prev => ({ ...prev, Image: null }))}
+                >
+                  <Icon name="close-circle" size={24} color="#FF4444" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Name Input */}
+          <Text style={styles.inputLabel}>Name *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter plant name"
+            value={newPlant.Name}
+            onChangeText={(text) => setNewPlant(prev => ({ ...prev, Name: text }))}
+          />
+
+          {/* Greenhouse Selection */}
+          <Text style={styles.inputLabel}>Greenhouse *</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={newPlant.Greenhouse}
+              style={styles.picker}
+              onValueChange={(itemValue) => setNewPlant(prev => ({ ...prev, Greenhouse: itemValue }))}
+            >
+              <Picker.Item label="Select a greenhouse" value="" />
+              {greenhouses.map((greenhouse) => (
+                <Picker.Item 
+                  key={greenhouse._id} 
+                  label={greenhouse.Name} 
+                  value={greenhouse._id} 
+                />
+              ))}
+            </Picker>
+          </View>
+
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleAddPlant}
+          >
+            <Text style={styles.submitButtonText}>Add Plant</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -848,6 +1126,8 @@ const handleEditPlant = (plant) => {
           </View>
         </View>
         <View style={styles.cardHeaderActions}>
+
+          {!isPageVisible && (
           <TouchableOpacity 
             style={styles.editButton}
             onPress={() => {
@@ -857,12 +1137,27 @@ const handleEditPlant = (plant) => {
           >
             <Icon name="pencil" size={20} color="#0d986a" />
           </TouchableOpacity>
+          )}
+
+          {!isPageVisible && (
           <TouchableOpacity 
             style={styles.removeButton}
             onPress={() => handleRemovePlant(plant._id || plant.id)}
           >
             <Icon name="delete" size={20} color="#ff4444" />
           </TouchableOpacity>
+        )}
+
+        {isPageVisible && (
+          <TouchableOpacity 
+            style={styles.editButton}
+            onPress={() => {
+              handleEditState(plant);
+            }}
+          >
+            <Icon name="pencil" size={20} color="#0d986a" />
+          </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -946,6 +1241,7 @@ const handleEditPlant = (plant) => {
       {renderDetailsModal()}
       {renderEditModal()}
       {renderAddModal()}
+      {renderEditStateModal()}
 
       <TouchableOpacity 
         style={styles.addButton}
@@ -1148,14 +1444,16 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 20,
     padding: 20,
+    width: '90%',
     maxHeight: '80%',
+    alignItems: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1322,9 +1620,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  closeButton: {
-    padding: 4,
-  },
   label: {
     fontSize: 14,
     fontWeight: '600',
@@ -1435,6 +1730,79 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: '#666',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    width: '90%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalLabel: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  numberInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 10,
+    marginRight: 10,
+  },
+  unitPicker: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 20,
+  },
+  cancelButton: {
+    backgroundColor: '#ff4444',
+    padding: 15,
+    borderRadius: 5,
+    width: '45%',
+  },
+  saveButton: {
+    backgroundColor: '#0d986a',
+    padding: 15,
+    borderRadius: 5,
+    width: '45%',
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  colon: {
+    fontSize: 16,
+    color: '#333',
+    marginRight: 10,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

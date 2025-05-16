@@ -4,6 +4,7 @@ import {Link, router} from 'expo-router'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getBaseUrl } from '../../config';
 import { useLoginData } from '../context/LoginDataContext';
+import { useUser } from '../context/UserContext';
 const { width, height } = Dimensions.get('window');
 
 const ExploreContent = () => {
@@ -15,6 +16,7 @@ const ExploreContent = () => {
   */
 
   const { loginData, setLoginData } = useLoginData();
+  const { setUserRole } = useUser();
 
   function ResetHook(){
     setLoginData({
@@ -62,6 +64,9 @@ const ExploreContent = () => {
 
         // Check if the account exists
         if (result.exists) {
+            // Set user role based on the response
+            setUserRole(result.role || 'farmer'); // Default to 'farmer' if role not specified
+            
             // Account exists, update loginData with the user's name
             setLoginData(prevData => ({
                 ...prevData,

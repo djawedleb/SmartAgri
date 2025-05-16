@@ -2,7 +2,9 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import React from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
+
 const Sensors = () => {
+ 
   // Mock data for sensors (replace with real data later)
   const sensorData = [
     {

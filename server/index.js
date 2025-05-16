@@ -80,6 +80,18 @@ const loginSchema = new mongoose.Schema({
     Name: String,
     Greenhouse: String,
     Image: String,
+    lastChecked: {
+      type: String,
+      format: 'HH:mm' // 24-hour format with minutes
+    },
+    wateringInterval: {
+      type: String,
+      format: 'DD HH' // Day of month and hour
+    },
+    fertilizerInterval: {
+      type: String,
+      format: 'MM DD' // Month and day of month
+    }
   });
   
   const Plant = mongoose.model("Plant", AddPlant);
@@ -301,7 +313,7 @@ app.post("/DeletePlant", async function(req, res){
 
       if (imagePath) {
         updateData.Image = imagePath;
-      }
+        }
 
       const updatedPlant = await Plant.findByIdAndUpdate(
         id,
@@ -311,12 +323,79 @@ app.post("/DeletePlant", async function(req, res){
 
       if (!updatedPlant) {
         return res.status(404).json({ message: 'Plant not found' });
-      }
+        }
 
       res.json({ message: "Plant updated successfully", plant: updatedPlant });
     } catch (error) {
-      console.error('Error updating plant:', error);
-      res.status(500).json({ error: 'Failed to update plant' });
+        console.error('Error updating plant:', error);
+        res.status(500).json({ error: 'Failed to update plant' });
+    }
+});
+
+  // Endpoint to update plant state
+  app.put("/api/plants/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { lastChecked, wateringInterval, fertilizerInterval } = req.body;
+
+      // Validate time formats
+      const validateTimeFormat = (time) => {
+        if (!time) return false;
+        const [hour, minute] = time.split(':');
+        return hour && minute && 
+               !isNaN(hour) && !isNaN(minute) &&
+               parseInt(hour) >= 0 && parseInt(hour) <= 23 && 
+               parseInt(minute) >= 0 && parseInt(minute) <= 59;
+      };
+
+      const validateWateringFormat = (interval) => {
+        if (!interval) return false;
+        const [day, hour] = interval.split(' ');
+        return day && hour && 
+               !isNaN(day) && !isNaN(hour) &&
+               parseInt(day) >= 1 && parseInt(day) <= 31 && 
+               parseInt(hour) >= 0 && parseInt(hour) <= 23;
+      };
+
+      const validateFertilizerFormat = (interval) => {
+        if (!interval) return false;
+        const [month, day] = interval.split(' ');
+        return month && day && 
+               !isNaN(month) && !isNaN(day) &&
+               parseInt(month) >= 1 && parseInt(month) <= 12 && 
+               parseInt(day) >= 1 && parseInt(day) <= 31;
+      };
+
+      if (!validateTimeFormat(lastChecked)) {
+        return res.status(400).json({ error: 'Invalid time format for last checked. Format should be HH:mm' });
+      }
+
+      if (!validateWateringFormat(wateringInterval)) {
+        return res.status(400).json({ error: 'Invalid format for watering interval. Format should be DD HH' });
+      }
+
+      if (!validateFertilizerFormat(fertilizerInterval)) {
+        return res.status(400).json({ error: 'Invalid format for fertilizer interval. Format should be MM DD' });
+      }
+
+      const updatedPlant = await Plant.findByIdAndUpdate(
+        id,
+        {
+          lastChecked,
+          wateringInterval,
+          fertilizerInterval
+        },
+        { new: true } // Return the updated document
+      );
+
+      if (!updatedPlant) {
+        return res.status(404).json({ error: 'Plant not found' });
+      }
+
+      res.json(updatedPlant);
+    } catch (error) {
+      console.error('Error updating plant state:', error);
+      res.status(500).json({ error: 'Failed to update plant state' });
     }
   });
 
@@ -542,4 +621,3 @@ app.post("/verifyManagerPin", async (req, res) => {
     res.status(500).json({ error: "Failed to verify PIN" });
   }
 });
-

@@ -4,7 +4,8 @@ const LoginDataContext = createContext(); //creates a React Context to share log
 
 export const useLoginData = () => useContext(LoginDataContext); //a hook that makes it easy to access the context
 
-export const LoginDataProvider = ({ children }) => { //children represents any components that will be wrapped by this provider
+//children represents any components that will be wrapped by this provider
+export const LoginDataProvider = ({ children }) => { 
   const [loginData, setLoginData] = useState({
     UserName: "",
     Password: "",
