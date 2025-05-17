@@ -5,17 +5,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { getBaseUrl } from '../../config';
-import { useUser } from '../context/UserContext';
 
 const GreenHouses = () => {
-
-  const { isPageVisible } = useUser();
-
   const GreenHouseImg = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae";
   const [greenhouses, setGreenhouses] = useState([]);
   const [selectedGreenhouse, setSelectedGreenhouse] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [mapRegion, setMapRegion] = useState({
     latitude: 0,
     longitude: 0,
@@ -69,6 +66,7 @@ const GreenHouses = () => {
   //to get all greenhouses from the server and display them
   const fetchGreenhouses = async () => {
     try {
+      setIsRefreshing(true);
       const baseUrl = getBaseUrl();
       const response = await fetch(`${baseUrl}/GetGreenhouses`);
       if (!response.ok) {
@@ -79,6 +77,8 @@ const GreenHouses = () => {
     } catch (error) {
       console.error('Error fetching greenhouses:', error);
       Alert.alert('Error', 'Failed to fetch greenhouses');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -589,65 +589,61 @@ const GreenHouses = () => {
         style={styles.greenhouseImage} 
       />
       <View style={styles.cardContent}>
-        <View style={[styles.cardHeader, !isPageVisible('Sensors') && styles.centeredHeader]}>
+        <View style={styles.cardHeader}>
           <Text style={styles.greenhouseName}>{greenhouse.Name}</Text>
-          {isPageVisible('Sensors') && (
-            <View style={styles.cardActions}>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => {
-                  setIsEditMode(true);
-                  setSelectedGreenhouse(greenhouse);
-                  setFormData({
-                    name: greenhouse.Name,
-                    location: greenhouse.Location,
-                    image: greenhouse.Image
-                  });
-                  setIsModalVisible(true);
-                }}
-              >
-                <Icon name="pencil" size={20} color="#0d986a" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.removeButton]}
-                onPress={() => {
-                  Alert.alert(
-                    'Remove Greenhouse',
-                    'Are you sure you want to remove this greenhouse?',
-                    [
-                      {
-                        text: 'Cancel',
-                        style: 'cancel',
-                      },
-                      {
-                        text: 'Remove',
-                        onPress: () => handleDeleteGreenhouse(greenhouse._id),
-                      },
-                    ],
-                  );
-                }}
-              >
-                <Icon name="delete" size={20} color="#FF4444" />
-              </TouchableOpacity>
-            </View>
-          )}
+          <View style={styles.cardActions}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => {
+                setIsEditMode(true);
+                setSelectedGreenhouse(greenhouse);
+                setFormData({
+                  name: greenhouse.Name,
+                  location: greenhouse.Location,
+                  image: greenhouse.Image
+                });
+                setIsModalVisible(true);
+              }}
+            >
+              <Icon name="pencil" size={20} color="#0d986a" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.removeButton]}
+              onPress={() => {
+                Alert.alert(
+                  'Remove Greenhouse',
+                  'Are you sure you want to remove this greenhouse?',
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                    {
+                      text: 'Remove',
+                      onPress: () => handleDeleteGreenhouse(greenhouse._id),
+                    },
+                  ],
+                );
+              }}
+            >
+              <Icon name="delete" size={20} color="#FF4444" />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.readingsContainer}>
-          <View style={styles.readingItem}>
-            <Icon name="white-balance-sunny" size={24} color="#333" />
-            <Text style={styles.readingValue}>59%</Text>
+        <View style={styles.sensorGrid}>
+          <View style={styles.sensorItem}>
+            <Icon name="white-balance-sunny" size={28} color="#0d986a" />
+            <Text style={styles.sensorValue}>59%</Text>
           </View>
-          <View style={styles.readingItem}>
-            <Icon name="thermometer" size={24} color="#333" />
-            <Text style={styles.readingValue}>30°C</Text>
+          <View style={styles.sensorDivider} />
+          <View style={styles.sensorItem}>
+            <Icon name="thermometer" size={28} color="#0d986a" />
+            <Text style={styles.sensorValue}>30°C</Text>
           </View>
-          <View style={styles.readingItem}>
-            <Icon name="water-percent" size={24} color="#999" />
-            <Text style={styles.readingValue}>Off</Text>
-          </View>
-          <View style={styles.readingItem}>
-            <Icon name="waves" size={24} color="#999" />
-            <Text style={styles.readingValue}>Off</Text>
+          <View style={styles.sensorDivider} />
+          <View style={styles.sensorItem}>
+            <Icon name="water-percent" size={28} color="#0d986a" />
+            <Text style={styles.sensorValue}>65%</Text>
           </View>
         </View>
       </View>
@@ -658,35 +654,45 @@ const GreenHouses = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Greenhouses</Text>
+        {selectedGreenhouse && (
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => setSelectedGreenhouse(null)}
+          >
+            <Icon name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.headerTitle}>
+          {selectedGreenhouse ? selectedGreenhouse.Name : 'Greenhouses'}
+        </Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
-            style={styles.refreshButton}
-            onPress={() => {
-              fetchGreenhouses();
-            }}
+            style={[styles.refreshButton, isRefreshing && styles.refreshButtonActive]}
+            onPress={fetchGreenhouses}
+            disabled={isRefreshing}
           >
-            <Icon name="refresh" size={24} color="#0d986a" />
+            <Icon 
+              name="refresh" 
+              size={24} 
+              color="#0d986a" 
+              style={isRefreshing && styles.refreshingIcon}
+            />
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView 
-        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {selectedGreenhouse ? (
-          // Greenhouse Detail View
-          <View style={styles.detailContainer}>
-            <View style={styles.detailHeader}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => setSelectedGreenhouse(null)}
-              >
-                <Icon name="arrow-left" size={24} color="#333" />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>{selectedGreenhouse.Name}</Text>
-            </View>
+          // Detailed Greenhouse View
+          <View>
+            <Image 
+              source={{ uri: selectedGreenhouse.Image || GreenHouseImg }} 
+              style={styles.detailImage}
+            />
 
             <Text style={styles.sectionTitle}>Plants</Text>
             <View style={styles.plantsContainer}>
@@ -726,17 +732,7 @@ const GreenHouses = () => {
             </View>
           </View>
         ) : (
-          // Greenhouse List View
-          <>
-            {greenhouses.length > 0 ? (
-              greenhouses.map(renderGreenhouseCard)
-            ) : (
-              <View style={styles.emptyStateContainer}>
-                <Icon name="greenhouse" size={64} color="#ccc" />
-                <Text style={styles.emptyStateText}>We can't find any greenhouse</Text>
-              </View>
-            )}
-          </>
+          greenhouses.map(renderGreenhouseCard)
         )}
       </ScrollView>
 
@@ -745,7 +741,7 @@ const GreenHouses = () => {
           style={styles.addButton}
           onPress={() => setIsModalVisible(true)}
         >
-          <Icon name="plus" size={24} color="#fff" />
+          <Icon name="plus" size={24} color="white" />
         </TouchableOpacity>
       )}
 
@@ -771,10 +767,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+    flex: 1,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -786,8 +792,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#f1f9f5',
   },
-  backButton: {
-    marginRight: 16,
+  refreshButtonActive: {
+    backgroundColor: '#e8f5e9',
+  },
+  refreshingIcon: {
+    transform: [{ rotate: '45deg' }],
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
   },
   greenhouseCard: {
     backgroundColor: '#fff',
@@ -803,7 +819,7 @@ const styles = StyleSheet.create({
   },
   greenhouseImage: {
     width: '100%',
-    height: 200,
+    height: 180,
     resizeMode: 'cover',
   },
   cardContent: {
@@ -815,8 +831,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  centeredHeader: {
-    justifyContent: 'center',
+  greenhouseName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
   },
   cardActions: {
     flexDirection: 'row',
@@ -826,41 +844,41 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f1f9f5',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
   },
   removeButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#FF4444',
   },
-  greenhouseName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  readingsContainer: {
+  sensorGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  readingItem: {
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
   },
-  readingValue: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#666',
+  sensorItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  sensorDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#e9ecef',
+  },
+  sensorValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
   },
   detailImage: {
     width: '100%',
-    height: 200,
+    height: 250,
     resizeMode: 'cover',
   },
   sectionTitle: {
@@ -1006,9 +1024,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
-  },
-  scrollContent: {
-    paddingBottom: 80,
   },
   modalOverlay: {
     flex: 1,
@@ -1231,28 +1246,6 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 16,
-  },
-  detailContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  emptyStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-    marginTop: 100,
-  },
-  emptyStateText: {
-    fontSize: 18,
-    color: '#666',
-    marginTop: 16,
-    textAlign: 'center',
   },
 });
 
