@@ -657,27 +657,36 @@ const GreenHouses = () => {
   // main render function
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Greenhouses</Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.refreshButton}
+            onPress={() => {
+              fetchGreenhouses();
+            }}
+          >
+            <Icon name="refresh" size={24} color="#0d986a" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         {selectedGreenhouse ? (
-          // Detailed Greenhouse View
-          <View>
-            <View style={styles.header}>
+          // Greenhouse Detail View
+          <View style={styles.detailContainer}>
+            <View style={styles.detailHeader}>
               <TouchableOpacity 
                 style={styles.backButton}
                 onPress={() => setSelectedGreenhouse(null)}
               >
-                <Icon name="chevron-left" size={24} color="#333" />
+                <Icon name="arrow-left" size={24} color="#333" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>{selectedGreenhouse.Name}</Text>
             </View>
-
-            <Image 
-              source={{ uri: selectedGreenhouse.Image || GreenHouseImg }} 
-              style={styles.detailImage}
-            />
 
             <Text style={styles.sectionTitle}>Plants</Text>
             <View style={styles.plantsContainer}>
@@ -718,7 +727,16 @@ const GreenHouses = () => {
           </View>
         ) : (
           // Greenhouse List View
-          greenhouses.map(renderGreenhouseCard)
+          <>
+            {greenhouses.length > 0 ? (
+              greenhouses.map(renderGreenhouseCard)
+            ) : (
+              <View style={styles.emptyStateContainer}>
+                <Icon name="greenhouse" size={64} color="#ccc" />
+                <Text style={styles.emptyStateText}>We can't find any greenhouse</Text>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -740,21 +758,36 @@ const GreenHouses = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backButton: {
-    marginRight: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshButton: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#f1f9f5',
+  },
+  backButton: {
+    marginRight: 16,
   },
   greenhouseCard: {
     backgroundColor: '#fff',
@@ -1198,6 +1231,28 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 16,
+  },
+  detailContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    marginTop: 100,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: '#666',
+    marginTop: 16,
+    textAlign: 'center',
   },
 });
 

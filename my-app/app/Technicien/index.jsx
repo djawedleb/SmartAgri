@@ -1,171 +1,175 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import React from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useLoginData } from '../context/LoginDataContext';
 
+export default function TechnicianHome() {
+  const { loginData } = useLoginData();
 
-const Sensors = () => {
- 
-  // Mock data for sensors (replace with real data later)
-  const sensorData = [
-    {
-      id: 1,
-      name: 'Soil Moisture',
-      value: '65%',
-      status: 'normal',
-      icon: 'water-percent',
-      color: '#4CAF50'
-    },
-    {
-      id: 2,
-      name: 'Temperature',
-      value: '24°C',
-      status: 'warning',
-      icon: 'thermometer',
-      color: '#FF9800'
-    },
-    {
-      id: 3,
-      name: 'Humidity',
-      value: '75%',
-      status: 'normal',
-      icon: 'water',
-      color: '#2196F3'
-    },
-    {
-      id: 4,
-      name: 'Light Intensity',
-      value: '850 lux',
-      status: 'normal',
-      icon: 'white-balance-sunny',
-      color: '#FFC107'
-    },
-    {
-      id: 5,
-      name: 'pH Level',
-      value: '6.5',
-      status: 'normal',
-      icon: 'test-tube',
-      color: '#9C27B0'
-    },
-    {
-      id: 6,
-      name: 'Soil NPK',
-      value: 'Good',
-      status: 'normal',
-      icon: 'leaf',
-      color: '#4CAF50'
-    }
-  ];
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'normal':
-        return '#4CAF50';
-      case 'warning':
-        return '#FF9800';
-      case 'critical':
-        return '#F44336';
-      default:
-        return '#4CAF50';
-    }
+  // Mock data for demonstration
+  const sensorStats = {
+    total: 24,
+    active: 18,
+    needsMaintenance: 4,
+    offline: 2
   };
 
+  const recentAlerts = [
+    { id: 1, type: 'warning', message: 'Temperature sensor #3 battery low', time: '2 hours ago' },
+    { id: 2, type: 'error', message: 'Humidity sensor #7 offline', time: '4 hours ago' },
+    { id: 3, type: 'info', message: 'New sensor calibration required', time: '1 day ago' }
+  ];
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Farming Sensors</Text>
-      <Text style={styles.subtitle}>Real-time monitoring</Text>
-      
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.gridContainer}>
-          {sensorData.map((sensor) => (
-            <View key={sensor.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Icon name={sensor.icon} size={24} color={sensor.color} />
-                <View style={[styles.statusDot, { backgroundColor: getStatusColor(sensor.status) }]} />
-              </View>
-              <Text style={styles.sensorName}>{sensor.name}</Text>
-              <Text style={styles.sensorValue}>{sensor.value}</Text>
-              <Text style={[styles.statusText, { color: getStatusColor(sensor.status) }]}>
-                {sensor.status.charAt(0).toUpperCase() + sensor.status.slice(1)}
-              </Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={styles.header}>
+          <Text style={styles.welcomeText}>Welcome back,</Text>
+          <Text style={styles.nameText}>{loginData.name}</Text>
+        </View>
+
+        <View style={styles.statsContainer}>
+          <Text style={styles.sectionTitle}>Sensor Overview</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Icon name="chip" size={24} color="#0d986a" />
+              <Text style={styles.statNumber}>{sensorStats.total}</Text>
+              <Text style={styles.statLabel}>Total Sensors</Text>
             </View>
+            <View style={styles.statCard}>
+              <Icon name="check-circle" size={24} color="#4CAF50" />
+              <Text style={styles.statNumber}>{sensorStats.active}</Text>
+              <Text style={styles.statLabel}>Active</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Icon name="wrench" size={24} color="#FFA000" />
+              <Text style={styles.statNumber}>{sensorStats.needsMaintenance}</Text>
+              <Text style={styles.statLabel}>Needs Maintenance</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Icon name="alert-circle" size={24} color="#F44336" />
+              <Text style={styles.statNumber}>{sensorStats.offline}</Text>
+              <Text style={styles.statLabel}>Offline</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.alertsContainer}>
+          <Text style={styles.sectionTitle}>Recent Alerts</Text>
+          {recentAlerts.map(alert => (
+            <Pressable key={alert.id} style={styles.alertCard}>
+              <Icon 
+                name={alert.type === 'warning' ? 'alert' : alert.type === 'error' ? 'alert-circle' : 'information'} 
+                size={24} 
+                color={alert.type === 'warning' ? '#FFA000' : alert.type === 'error' ? '#F44336' : '#2196F3'} 
+              />
+              <View style={styles.alertContent}>
+                <Text style={styles.alertMessage}>{alert.message}</Text>
+                <Text style={styles.alertTime}>{alert.time}</Text>
+              </View>
+              <Icon name="chevron-right" size={24} color="#666" />
+            </Pressable>
           ))}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100, // Add extra padding at the bottom
+  },
+  header: {
+    padding: 20,
     backgroundColor: 'white',
-    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  subtitle: {
+  welcomeText: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 20,
   },
-  scrollView: {
-    flex: 1,
+  nameText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0d986a',
   },
-  gridContainer: {
+  statsContainer: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+  },
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingBottom: 16,
-    paddingHorizontal: 8,
-    paddingTop: 8,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+  statCard: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
     width: '48%',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    overflow: 'visible',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginBottom: 15,
     alignItems: 'center',
-    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  sensorName: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  sensorValue: {
+  statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
+    marginVertical: 5,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '500',
+  statLabel: {
+    fontSize: 14,
+    color: '#666',
   },
-});
-
-export default Sensors;
+  alertsContainer: {
+    padding: 20,
+  },
+  alertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  alertContent: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  alertMessage: {
+    fontSize: 16,
+    color: '#333',
+  },
+  alertTime: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+}); 
