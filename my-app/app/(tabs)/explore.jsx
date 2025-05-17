@@ -65,15 +65,21 @@ const ExploreContent = () => {
         // Check if the account exists
         if (result.exists) {
             // Set user role based on the response
-            setUserRole(result.role || 'farmer'); // Default to 'farmer' if role not specified
+            setUserRole(result.role); 
+            console.log("Role is " + result.role);
             
             // Account exists, update loginData with the user's name
             setLoginData(prevData => ({
                 ...prevData,
                 name: loginData.UserName // Using the username as the display name
             }));
-            // Navigate to the next page
-            router.push('/Home/');
+
+            // Redirect based on role
+            if (result.role === 'technicien') {
+                router.push('/Technicien/');
+            } else {
+                router.push('/Home/');
+            }
         } else {
             // Account doesn't exist, stay on login page
             alert('Invalid username or password');

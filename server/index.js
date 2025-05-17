@@ -110,11 +110,22 @@ app.post("/exploreUser", async function(req, res){
         const {UserName, Password} = req.body;
         console.log('Searching for user:', UserName);
         
+        // First check in the User collection to get the role
+        const user = await User.findOne({UserName: UserName});
+        if (!user) {
+            console.log('User not found');
+            return res.json({ exists: false });
+        }
+
+        // Then check in the login collection for authentication
         const existingUser = await login.findOne({UserName: UserName, Password: Password});
         
         if (existingUser) {
             console.log('User found');
-            res.json({ exists: true });
+            res.json({ 
+                exists: true,
+                role: user.Role // Send back the role from the User collection
+            });
         } else {
             console.log('User not found');
             res.json({ exists: false });

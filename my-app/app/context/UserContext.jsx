@@ -11,10 +11,11 @@ export const useUser = () => {
   }; 
 
 export const UserProvider = ({ children }) => {
-  const [userRole, setUserRole] = useState(null); // null = manager, 'farmer' = farmer
+  const [userRole, setUserRole] = useState(null); // null = manager, 'farmer' = farmer, 'technicien' = technicien
 
   const isManager = () => userRole === null;
   const isFarmer = () => userRole === 'farmer';
+  const isTechnician = () => userRole === 'technicien';
 
   const isPageVisible = (pageName) => {
     // Manager can see everything
@@ -27,6 +28,11 @@ export const UserProvider = ({ children }) => {
       //If the page is NOT in hiddenPages → return true (show the page)
     }
 
+    // Technicien can only access Technicien folder
+    if (isTechnician()) {
+      return pageName.startsWith('Technicien/');
+    }
+
     return false;
   };
 
@@ -35,7 +41,8 @@ export const UserProvider = ({ children }) => {
       userRole, 
       setUserRole, 
       isManager, 
-      isFarmer, 
+      isFarmer,
+      isTechnician,
       isPageVisible 
     }}>
       {children}

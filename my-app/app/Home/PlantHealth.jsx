@@ -23,21 +23,42 @@ const getImageSource = (imagePath) => {
 const PlantHealth = () => {
 
    const { isPageVisible } = useUser();
+   const leftPadding = 60;
 
   // Function to calculate time difference
   const calculateTimeDiff = (lastChecked) => {
     try {
+      if (!lastChecked) return '0h 0m';
+      
       const now = new Date();
       const [lastHour, lastMinute] = lastChecked.split(':');
       const lastCheckedDate = new Date();
       lastCheckedDate.setHours(parseInt(lastHour), parseInt(lastMinute), 0, 0);
       
+      // If the last checked time is later than current time, it means it was yesterday
+      if (lastCheckedDate > now) {
+        lastCheckedDate.setDate(lastCheckedDate.getDate() - 1);
+      }
+      
       const diff = Math.floor((now - lastCheckedDate) / (1000 * 60));
       const hours = Math.floor(diff / 60);
       const minutes = diff % 60;
       
-      return `${hours}h ${minutes}m`;
+      // Format the output
+      if (hours === 0) {
+        return `${minutes}m`;
+      } else if (hours < 24) {
+        return `${hours}h ${minutes}m`;
+      } else {
+        const days = Math.floor(hours / 24);
+        const remainingHours = hours % 24;
+        if (remainingHours === 0) {
+          return `${days}d`;
+        }
+        return `${days}d ${remainingHours}h`;
+      }
     } catch (error) {
+      console.error('Error calculating time difference:', error);
       return '0h 0m';
     }
   };
@@ -45,12 +66,46 @@ const PlantHealth = () => {
   // Function to calculate days and hours from watering interval
   const calculateWateringTime = (interval) => {
     try {
+      if (!interval) return '0d 0h';
+      
       const [day, hour] = interval.split(' ');
       const days = parseInt(day);
       const hours = parseInt(hour);
       
-      return `${days}d ${hours}h`;
+      // Validate the numbers
+      if (isNaN(days) || isNaN(hours)) {
+        console.error('Invalid watering interval format:', interval);
+        return '0d 0h';
+      }
+
+      // Get current time
+      const now = new Date();
+      const lastWatering = new Date();
+      
+      // Set the last watering time
+      lastWatering.setDate(now.getDate() - days);
+      lastWatering.setHours(hours, 0, 0, 0);
+
+      // Calculate time difference in minutes
+      const diff = Math.floor((now - lastWatering) / (1000 * 60));
+      const elapsedDays = Math.floor(diff / (60 * 24));
+      const elapsedHours = Math.floor((diff % (60 * 24)) / 60);
+      const elapsedMinutes = diff % 60;
+
+      // Format the output
+      if (elapsedDays === 0) {
+        if (elapsedHours === 0) {
+          return `${elapsedMinutes}m ago`;
+        }
+        return `${elapsedHours}h ${elapsedMinutes}m ago`;
+      } else {
+        if (elapsedHours === 0) {
+          return `${elapsedDays}d ago`;
+        }
+        return `${elapsedDays}d ${elapsedHours}h ago`;
+      }
     } catch (error) {
+      console.error('Error calculating watering time:', error);
       return '0d 0h';
     }
   };
@@ -686,7 +741,7 @@ const handleEditPlant = (plant) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveButton, isSaving && styles.disabledButton]}
-                onPress={saveStateChanges}
+                onPress={{saveStateChanges}}
                 disabled={isSaving}
               >
                 <Text style={styles.buttonText}>{isSaving ? 'Saving...' : 'Save'}</Text>
@@ -711,7 +766,7 @@ const handleEditPlant = (plant) => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Plant Details</Text>
             <View style={styles.modalHeaderActions}>
-              {!isPageVisible && (
+              {isPageVisible('Sensors') && (
               <TouchableOpacity 
                 style={styles.modalActionButton}
                 onPress={() => setShowEditModal(true)}
@@ -719,7 +774,7 @@ const handleEditPlant = (plant) => {
                 <Icon name="pencil" size={24} color="#0d986a" />
               </TouchableOpacity>
               )}
-               {!isPageVisible && (
+               {isPageVisible('Sensors') && (
               <TouchableOpacity 
                 style={styles.modalActionButton}
                 onPress={() => handleRemovePlant(selectedPlant.id)}
@@ -728,7 +783,7 @@ const handleEditPlant = (plant) => {
               </TouchableOpacity>
               )}
 
-            {isPageVisible && (
+            {!isPageVisible('Sensors') && (
               <TouchableOpacity 
                 style={styles.modalActionButton}
                 onPress={() => handleEditState(selectedPlant)}
@@ -802,10 +857,10 @@ const handleEditPlant = (plant) => {
       visible={showEditModal}
       animationType="slide"
       transparent={true}
-      onRequestClose={() => setShowEditModal(false)}
+      onRequestClose={() => setShowEditModal(false)} 
     >
       <View style={styles.modalOverlay}>
-        <ScrollView>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', marginTop: selectedPlant?.Image ? 20 : 0, paddingBottom: selectedPlant?.Image ? 20 : 0 }}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Plant</Text>
@@ -1152,7 +1207,7 @@ const handleEditPlant = (plant) => {
         </View>
         <View style={styles.cardHeaderActions}>
 
-          {!isPageVisible && (
+          {isPageVisible('Sensors') && (
           <TouchableOpacity 
             style={styles.editButton}
             onPress={() => {
@@ -1164,7 +1219,7 @@ const handleEditPlant = (plant) => {
           </TouchableOpacity>
           )}
 
-          {!isPageVisible && (
+          {isPageVisible('Sensors') && (
           <TouchableOpacity 
             style={styles.removeButton}
             onPress={() => handleRemovePlant(plant._id || plant.id)}
@@ -1173,7 +1228,7 @@ const handleEditPlant = (plant) => {
           </TouchableOpacity>
         )}
 
-        {isPageVisible && (
+        {!isPageVisible('Sensors') && (
           <TouchableOpacity 
             style={styles.editButton}
             onPress={() => {
@@ -1319,7 +1374,10 @@ const renderCustomFilterModal = () => (
 
   //Main page component
   return (
-    <View style={styles.container} >
+    <View style={{
+      flex: 1,
+      backgroundColor: '#f8f9fa',
+    }}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Plant Health</Text>
         <View style={styles.headerButtons}>

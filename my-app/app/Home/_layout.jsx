@@ -165,13 +165,7 @@ export default function TabLayout() {
                   }),
                   opacity: submenuHeight
                 }]}>
-                  <Pressable 
-                    style={styles.submenuItem}
-                    onPress={() => handleNavigation('/Home/')}
-                  >
-                    <Icon name="weather-lightning" size={20} color="#0d986a" />
-                    <Text style={styles.submenuText}>Weather</Text>
-                  </Pressable>
+
                   <Pressable 
                     style={styles.submenuItem}
                     onPress={() => handleNavigation('/Home/PlantHealth')}
@@ -379,7 +373,8 @@ export default function TabLayout() {
           height: 55,
           paddingBottom: 0,
           paddingTop: 0,
-          paddingLeft: leftPadding,
+          paddingLeft: isPageVisible('Sensors') ? 0 : leftPadding,
+          
         },
       })}>
       {tabs.map((tab) => (
