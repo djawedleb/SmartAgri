@@ -105,6 +105,18 @@ const loginSchema = new mongoose.Schema({
   
   const Greenhouse = mongoose.model("Greenhouse", AddGreenhouse);
 
+const AnalysisHistorySchema = new mongoose.Schema({
+  imageUrl: String,
+  plantName: String,
+  diseases: [String],
+  confidence: Number,
+  recommendations: [String],
+  timestamp: { type: Date, default: Date.now },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false }
+});
+
+const AnalysisHistory = mongoose.model("AnalysisHistory", AnalysisHistorySchema);
+
 // to search the user and allow him to login, from the explore page handlesubmit function//
 app.post("/exploreUser", async function(req, res){
     try {
@@ -728,5 +740,98 @@ app.post('/identify-crop-gemini', async (req, res) => {
   } catch (error) {
     console.error('Gemini API error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to analyze plant', details: error.response?.data || error.message });
+  }
+});
+
+// Endpoint to save analysis result
+app.post("/saveAnalysis", async (req, res) => {
+  try {
+    const { imageUrl, plantName, diseases, confidence, recommendations, userId } = req.body;
+    
+    const newAnalysis = new AnalysisHistory({
+      imageUrl,
+      plantName,
+      diseases,
+      confidence,
+      recommendations,
+      userId: userId || null
+    });
+
+    await newAnalysis.save();
+    res.json({ success: true, analysis: newAnalysis });
+  } catch (error) {
+    console.error('Error saving analysis:', error);
+    res.status(500).json({ error: 'Failed to save analysis' });
+  }
+});
+
+// Endpoint to get analysis history
+app.get("/getAnalysisHistory", async (req, res) => {
+  try {
+    const { userId, limit = 10 } = req.query;
+    const query = userId ? { userId } : {};
+    
+    const history = await AnalysisHistory.find(query)
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit));
+    
+    res.json(history);
+  } catch (error) {
+    console.error('Error fetching analysis history:', error);
+    res.status(500).json({ error: 'Failed to fetch analysis history' });
+  }
+});
+
+// Endpoint to delete a single analysis history item
+app.delete("/deleteAnalysis/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const analysis = await AnalysisHistory.findById(id);
+    
+    if (!analysis) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+
+    // Delete the image file if it exists
+    if (analysis.imageUrl) {
+      const imagePath = path.join(__dirname, analysis.imageUrl);
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+        console.log('Deleted image file:', imagePath);
+      }
+    }
+
+    // Delete the analysis from database
+    await AnalysisHistory.findByIdAndDelete(id);
+    res.json({ message: 'Analysis deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting analysis:', error);
+    res.status(500).json({ error: 'Failed to delete analysis' });
+  }
+});
+
+// Endpoint to clear all analysis history
+app.delete("/clearAnalysisHistory", async (req, res) => {
+  try {
+    // Get all analyses to delete their images
+    const analyses = await AnalysisHistory.find({});
+    
+    // Delete all image files
+    for (const analysis of analyses) {
+      if (analysis.imageUrl) {
+        const imagePath = path.join(__dirname, analysis.imageUrl);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+          console.log('Deleted image file:', imagePath);
+        }
+      }
+    }
+
+    // Delete all analyses from database
+    await AnalysisHistory.deleteMany({});
+    res.json({ message: 'All analysis history cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing analysis history:', error);
+    res.status(500).json({ error: 'Failed to clear analysis history' });
   }
 });
