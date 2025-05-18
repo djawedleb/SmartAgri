@@ -1,16 +1,15 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal, TextInput, Platform, Dimensions, ActivityIndicator } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 import { getBaseUrl } from '../../config';
 import FastImage from 'react-native-fast-image';
 import { useUser } from '../context/UserContext';
-const DEFAULT_PLANT_IMAGE = 'https://images.unsplash.com/photo-1518977676601-b53f82aba655';
+
 
 const getImageSource = (imagePath) => {
-  if (!imagePath) return { uri: DEFAULT_PLANT_IMAGE };
+  
   
   const uri = imagePath.startsWith('http') ? imagePath : `${getBaseUrl()}${imagePath}`;
   return {
@@ -187,7 +186,7 @@ const PlantHealth = () => {
   // Request permissions for image picker
   useEffect(() => {
     (async () => {
-      const { status } = await DocumentPicker.getDocumentPickerPermissionsAsync();
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to make this work!');
       }
@@ -273,36 +272,62 @@ const PlantHealth = () => {
 
   const handleImageSelect = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'image/*',
-        copyToCacheDirectory: true,
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
       });
-      
-      if (result.canceled) {
+
+      if (!result.canceled) {
+        if (showEditModal) {
+          setSelectedPlant(prev => ({
+            ...prev,
+            Image: result.assets[0].uri
+          }));
+        } else {
+          setNewPlant(prev => ({
+            ...prev,
+            Image: result.assets[0].uri
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant camera permission to take photos.');
         return;
       }
 
-      const file = result.assets[0];
-      
-      if (file.size > 5 * 1024 * 1024) { // 5MB in bytes
-        Alert.alert('Error', 'File size must be less than 5MB');
-        return;
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        if (showEditModal) {
+          setSelectedPlant(prev => ({
+            ...prev,
+            Image: result.assets[0].uri
+          }));
+        } else {
+          setNewPlant(prev => ({
+            ...prev,
+            Image: result.assets[0].uri
+          }));
+        }
       }
-      
-      if (showEditModal) {
-        setSelectedPlant(prev => ({
-          ...prev,
-          Image: file.uri
-        }));
-      } else {
-        setNewPlant(prev => ({
-          ...prev,
-          Image: file.uri
-        }));
-      }
-    } catch (err) {
-      console.error('Error picking file:', err);
-      Alert.alert('Error', 'Failed to select image');
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
     }
   };
 
@@ -875,30 +900,41 @@ const handleEditPlant = (plant) => {
             {/* Image Upload Section */}
             <View style={styles.formGroup}>
               <Text style={styles.label}>Image</Text>
-              <TouchableOpacity 
-                style={styles.imagePickerButton} 
-                onPress={handleImageSelect}
-              >
-                <Icon name="image-plus" size={24} color="#666" />
-                <Text style={styles.imagePickerText}>
-                  {selectedPlant?.Image ? 'Change Image' : 'Choose Image'}
-                </Text>
-              </TouchableOpacity>
-              {selectedPlant?.Image && (
-                <View style={styles.selectedImageContainer}>
+              <View style={styles.uploadArea}>
+                {selectedPlant?.Image ? (
                   <FastImage 
                     source={getImageSource(selectedPlant.Image)}
-                    style={styles.selectedImage} 
+                    style={styles.previewImage} 
                     resizeMode={FastImage.resizeMode.cover}
                     fallback={true}
                   />
-                  <TouchableOpacity
-                    style={styles.removeImageButton}
-                    onPress={() => setSelectedPlant(prev => ({ ...prev, Image: null }))}
-                  >
-                    <Icon name="close-circle" size={24} color="#FF4444" />
-                  </TouchableOpacity>
-                </View>
+                ) : (
+                  <>
+                    <Icon name="camera-plus" size={40} color="#0d986a" />
+                    <Text style={styles.uploadText}>Upload or take a photo of your plant</Text>
+                  </>
+                )}
+              </View>
+
+              <View style={styles.uploadButtons}>
+                <TouchableOpacity style={styles.uploadButton} onPress={handleImageSelect}>
+                  <Icon name="image-plus" size={24} color="#0d986a" />
+                  <Text style={styles.uploadButtonText}>Gallery</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.uploadButton} onPress={takePhoto}>
+                  <Icon name="camera" size={24} color="#0d986a" />
+                  <Text style={styles.uploadButtonText}>Camera</Text>
+                </TouchableOpacity>
+              </View>
+
+              {selectedPlant?.Image && (
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => setSelectedPlant(prev => ({ ...prev, Image: null }))}
+                >
+                  <Icon name="close-circle" size={24} color="#FF4444" />
+                </TouchableOpacity>
               )}
             </View>
 
@@ -1061,34 +1097,45 @@ const handleEditPlant = (plant) => {
           {/* Image Upload Section */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Image</Text>
-            <TouchableOpacity 
-              style={styles.imagePickerButton} 
-              onPress={handleImageSelect}
-            >
-              <Icon name="image-plus" size={24} color="#666" />
-              <Text style={styles.imagePickerText}>
-                {newPlant.Image ? 'Change Image' : 'Choose Image'}
-              </Text>
-            </TouchableOpacity>
-            {newPlant.Image && (
-              <View style={styles.selectedImageContainer}>
+            <View style={styles.uploadArea}>
+              {newPlant.Image ? (
                 <FastImage 
                   source={{ 
                     uri: newPlant.Image,
                     priority: FastImage.priority.high,
                     cache: FastImage.cacheControl.immutable
                   }} 
-                  style={styles.selectedImage} 
+                  style={styles.previewImage} 
                   resizeMode={FastImage.resizeMode.cover}
                   fallback={true}
                 />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => setNewPlant(prev => ({ ...prev, Image: null }))}
-                >
-                  <Icon name="close-circle" size={24} color="#FF4444" />
-                </TouchableOpacity>
-              </View>
+              ) : (
+                <>
+                  <Icon name="camera-plus" size={40} color="#0d986a" />
+                  <Text style={styles.uploadText}>Upload or take a photo of your plant</Text>
+                </>
+              )}
+            </View>
+
+            <View style={styles.uploadButtons}>
+              <TouchableOpacity style={styles.uploadButton} onPress={handleImageSelect}>
+                <Icon name="image-plus" size={24} color="#0d986a" />
+                <Text style={styles.uploadButtonText}>Gallery</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.uploadButton} onPress={takePhoto}>
+                <Icon name="camera" size={24} color="#0d986a" />
+                <Text style={styles.uploadButtonText}>Camera</Text>
+              </TouchableOpacity>
+            </View>
+
+            {newPlant.Image && (
+              <TouchableOpacity
+                style={styles.removeImageButton}
+                onPress={() => setNewPlant(prev => ({ ...prev, Image: null }))}
+              >
+                <Icon name="close-circle" size={24} color="#FF4444" />
+              </TouchableOpacity>
             )}
           </View>
 
@@ -2059,6 +2106,100 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  uploadArea: {
+    height: 200,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#0d986a',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+  },
+  uploadText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  uploadButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  uploadButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f9f5',
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 8,
+  },
+  uploadButtonText: {
+    marginLeft: 8,
+    color: '#0d986a',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  sensorDataContainer: {
+    marginBottom: 20,
+  },
+  sensorDataTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  sensorDataGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  sensorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sensorItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  sensorIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f9f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sensorValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  closeButton: {
+    padding: 4,
   },
 });
 
