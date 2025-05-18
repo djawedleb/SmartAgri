@@ -13,12 +13,13 @@ const path = require('path'); //to handle file paths
 const fs = require('fs'); //to handle file operations
 const SerialPort = require('serialport'); //to handle serial communication with arduino
 const Readline = require('@serialport/parser-readline'); //to parse the data from the serial port
+const axios = require('axios');
 
 const port = 3000;
 const app = express();
-app.use(bodyParser.json()); //so we are able to read data from the react app.js, Handles JSON data Used for API requests
-app.use(bodyParser.urlencoded({extended:true})); //Handles form data :
-// Used for HTML forms
+app.use(bodyParser.json({ limit: '10mb' })); // Handles JSON data, increased limit
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' })); // Handles form data, increased limit
+// Used for API requests
 
 // Configure multer for image uploads
 const storage = multer.diskStorage({
@@ -630,5 +631,57 @@ app.post("/verifyManagerPin", async (req, res) => {
   } catch (error) {
     console.error("Error verifying PIN:", error);
     res.status(500).json({ error: "Failed to verify PIN" });
+  }
+});
+
+
+
+// Endpoint to identify crop and detect diseases using Gemini API
+app.post('/identify-crop-gemini', async (req, res) => {
+  try {
+    const { image } = req.body;
+    if (!image) {
+      return res.status(400).json({ error: 'Image is required' });
+    }
+
+    // Prepare Gemini API request
+    const geminiApiKey = 'AIzaSyA99P6qMajmnjy9i-V9zLfMMNrEi8vL91k';
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+
+    const payload = {
+      contents: [
+        {
+          parts: [
+            {
+              text: "Analyze this plant image and provide: 1) Plant identification, 2) Any visible diseases or health issues, 3) Confidence level for each identification, 4) Care recommendations as a JSON array (recommendations). Format the response as JSON with these fields: plantName, diseases, confidence, recommendations (as an array of strings)."
+            },
+            {
+              inlineData: {
+                mimeType: image.startsWith('data:image/png') ? 'image/png' : 'image/jpeg',
+                data: image.replace(/^data:image\/(png|jpeg|jpg);base64,/, "")
+              }
+            }
+          ]
+        }
+      ]
+    };
+
+    const response = await axios.post(geminiUrl, payload, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    // Parse Gemini response
+    const geminiResponse = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(geminiResponse);
+    } catch (error) {
+      parsedResponse = { plantName: "Unknown", diseases: "Unknown", confidence: "Unknown", recommendations: geminiResponse };
+    }
+
+    res.json({ result: parsedResponse });
+  } catch (error) {
+    console.error('Gemini API error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to analyze plant', details: error.response?.data || error.message });
   }
 });

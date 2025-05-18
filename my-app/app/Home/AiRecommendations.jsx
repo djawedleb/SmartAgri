@@ -60,20 +60,40 @@ export default function AIRecommendations() {
 
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock analysis result
-      setAnalysis({
-        health: 'Healthy',
-        confidence: 95,
-        recommendations: [
-          'Maintain current watering schedule',
-          'Ensure adequate sunlight exposure',
-          'Monitor for any pest activity'
-        ],
-        issues: []
+      // Convert image to base64 if not already
+      let base64Image = selectedImage;
+      if (!base64Image.startsWith('data:image')) {
+        const response = await fetch(base64Image);
+        const blob = await response.blob();
+        base64Image = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      // Send to backend Gemini endpoint
+      const backendUrl = `${getBaseUrl()}/identify-crop-gemini`;
+      const res = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image })
       });
+      const data = await res.json();
+
+      if (data.result) {
+        setAnalysis({
+          health: data.result.diseases || 'Unknown',
+          confidence: data.result.confidence || 0,
+          recommendations: Array.isArray(data.result.recommendations)
+            ? data.result.recommendations
+            : [data.result.recommendations || 'No recommendations'],
+          issues: data.result.diseases ? [data.result.diseases] : []
+        });
+      } else {
+        Alert.alert('Error', 'No analysis result received.');
+      }
     } catch (error) {
       console.error('Error analyzing image:', error);
       Alert.alert('Error', 'Failed to analyze image. Please try again.');
@@ -133,46 +153,33 @@ export default function AIRecommendations() {
       <View style={styles.analysisSection}>
         <View style={styles.analysisHeader}>
           <Text style={styles.analysisTitle}>Analysis Results</Text>
-          <View style={styles.healthBadge}>
-            <Icon name="check-circle" size={16} color="#0d986a" />
-            <Text style={styles.healthText}>{analysis.health}</Text>
-          </View>
         </View>
 
-        <View style={styles.confidenceContainer}>
-          <Text style={styles.confidenceLabel}>Confidence Score</Text>
-          <View style={styles.confidenceBar}>
-            <View 
-              style={[
-                styles.confidenceFill, 
-                { width: `${analysis.confidence}%` }
-              ]} 
-            />
-          </View>
-          <Text style={styles.confidenceValue}>{analysis.confidence}%</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Plant Name:</Text>
+          <Text style={styles.sectionValue}>{analysis.plantName || 'Unknown'}</Text>
         </View>
 
-        <View style={styles.recommendationsContainer}>
-          <Text style={styles.recommendationsTitle}>Recommendations</Text>
-          {analysis.recommendations.map((recommendation, index) => (
-            <View key={index} style={styles.recommendationItem}>
-              <Icon name="check-circle" size={20} color="#0d986a" />
-              <Text style={styles.recommendationText}>{recommendation}</Text>
-            </View>
-          ))}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Diseases / Health Issues:</Text>
+          <Text style={styles.sectionValue}>{analysis.diseases || 'None detected'}</Text>
         </View>
 
-        {analysis.issues.length > 0 && (
-          <View style={styles.issuesContainer}>
-            <Text style={styles.issuesTitle}>Potential Issues</Text>
-            {analysis.issues.map((issue, index) => (
-              <View key={index} style={styles.issueItem}>
-                <Icon name="alert-circle" size={20} color="#ff4444" />
-                <Text style={styles.issueText}>{issue}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Confidence Level:</Text>
+          <Text style={styles.sectionValue}>{analysis.confidence || 'Unknown'}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Care Recommendations:</Text>
+          {Array.isArray(analysis.recommendations) && analysis.recommendations.length > 0 ? (
+            analysis.recommendations.map((rec, idx) => (
+              <Text key={idx} style={styles.sectionValue}>• {rec}</Text>
+            ))
+          ) : (
+            <Text style={styles.sectionValue}>No recommendations</Text>
+          )}
+        </View>
       </View>
     );
   };
@@ -325,91 +332,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  healthBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f9f5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+  section: {
+    marginBottom: 12,
   },
-  healthText: {
-    marginLeft: 4,
+  sectionLabel: {
+    fontWeight: 'bold',
     color: '#0d986a',
-    fontSize: 14,
-    fontWeight: '500',
+    marginBottom: 2,
   },
-  confidenceContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  confidenceLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  confidenceBar: {
-    height: 8,
-    backgroundColor: '#e9ecef',
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  confidenceFill: {
-    height: '100%',
-    backgroundColor: '#0d986a',
-    borderRadius: 4,
-  },
-  confidenceValue: {
-    fontSize: 14,
+  sectionValue: {
     color: '#333',
-    fontWeight: '600',
-    textAlign: 'right',
-  },
-  recommendationsContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  recommendationsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  recommendationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  recommendationText: {
     marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-    flex: 1,
-  },
-  issuesContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-  },
-  issuesTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  issueItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  issueText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-    flex: 1,
   },
 }); 

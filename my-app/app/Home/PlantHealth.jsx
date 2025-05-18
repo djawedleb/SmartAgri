@@ -21,9 +21,62 @@ const getImageSource = (imagePath) => {
 };
 
 const PlantHealth = () => {
+  const { isPageVisible } = useUser();
+  const leftPadding = 60;
 
-   const { isPageVisible } = useUser();
-   const leftPadding = 60;
+  // Add new state variables for plant analysis
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
+
+  // Function to analyze plant using the API
+  const analyzePlant = async (imageUri) => {
+    try {
+      setIsAnalyzing(true);
+      setAnalysisResult(null);
+
+      // Convert image to base64
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/identify-crop`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: `data:image/jpeg;base64,${base64}`
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze plant');
+      }
+
+      const result = await response.json();
+      setAnalysisResult(result);
+      
+      // Update plant name with the identified plant
+      if (showAddModal && result.result?.classification?.suggestions?.[0]?.name) {
+        setNewPlant(prev => ({
+          ...prev,
+          Name: result.result.classification.suggestions[0].name,
+        }));
+      } else if (showEditModal && result.result?.classification?.suggestions?.[0]?.name) {
+        setSelectedPlant(prev => ({
+          ...prev,
+          Name: result.result.classification.suggestions[0].name,
+        }));
+      }
+
+    } catch (error) {
+      console.error('Error analyzing plant:', error);
+      Alert.alert('Error', 'Failed to analyze plant. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   // Function to calculate time difference
   const calculateTimeDiff = (lastChecked) => {
@@ -271,38 +324,28 @@ const PlantHealth = () => {
     }
   };
 
+  // Modify the handleImageSelect function to include plant analysis
   const handleImageSelect = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'image/*',
         copyToCacheDirectory: true,
       });
-      
-      if (result.canceled) {
-        return;
-      }
 
-      const file = result.assets[0];
-      
-      if (file.size > 5 * 1024 * 1024) { // 5MB in bytes
-        Alert.alert('Error', 'File size must be less than 5MB');
-        return;
+      if (result.type === 'success') {
+        if (showAddModal) {
+          setNewPlant(prev => ({ ...prev, Image: result.uri }));
+          // Analyze plant when image is selected in add modal
+          await analyzePlant(result.uri);
+        } else if (showEditModal) {
+          setSelectedPlant(prev => ({ ...prev, Image: result.uri }));
+          // Analyze plant when image is selected in edit modal
+          await analyzePlant(result.uri);
+        }
       }
-      
-      if (showEditModal) {
-        setSelectedPlant(prev => ({
-          ...prev,
-          Image: file.uri
-        }));
-      } else {
-        setNewPlant(prev => ({
-          ...prev,
-          Image: file.uri
-        }));
-      }
-    } catch (err) {
-      console.error('Error picking file:', err);
-      Alert.alert('Error', 'Failed to select image');
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
     }
   };
 
@@ -967,6 +1010,43 @@ const handleEditPlant = (plant) => {
               </View>
             )}
 
+            {isAnalyzing && (
+              <View style={styles.analyzingContainer}>
+                <ActivityIndicator size="large" color="#0d986a" />
+                <Text style={styles.analyzingText}>Analyzing plant...</Text>
+              </View>
+            )}
+
+            {analysisResult && showEditModal && (
+              <View style={styles.analysisResult}>
+                <Text style={styles.analysisTitle}>Plant Analysis:</Text>
+                <Text style={styles.analysisText}>
+                  {analysisResult.result?.classification?.suggestions?.[0]?.name || 'Unknown'}
+                </Text>
+                {analysisResult.result?.classification?.suggestions?.[0]?.details?.diseases && (
+                  <View style={styles.diseaseInfo}>
+                    <Text style={styles.diseaseTitle}>Health Status:</Text>
+                    <Text style={styles.diseaseText}>
+                      {analysisResult.result.classification.suggestions[0].details.diseases}
+                    </Text>
+                  </View>
+                )}
+                {analysisResult.result?.classification?.suggestions?.[0]?.details?.recommendations && (
+                  <View style={styles.recommendationsInfo}>
+                    <Text style={styles.recommendationsTitle}>Care Recommendations:</Text>
+                    <Text style={styles.recommendationsText}>
+                      {analysisResult.result.classification.suggestions[0].details.recommendations}
+                    </Text>
+                  </View>
+                )}
+                {analysisResult.result?.classification?.suggestions?.[0]?.probability && (
+                  <Text style={styles.analysisConfidence}>
+                    Confidence: {Math.round(analysisResult.result.classification.suggestions[0].probability * 100)}%
+                  </Text>
+                )}
+              </View>
+            )}
+
             <TouchableOpacity
               style={styles.submitButton}
               onPress={handleEdit}
@@ -1119,6 +1199,43 @@ const handleEditPlant = (plant) => {
               ))}
             </Picker>
           </View>
+
+          {isAnalyzing && (
+            <View style={styles.analyzingContainer}>
+              <ActivityIndicator size="large" color="#0d986a" />
+              <Text style={styles.analyzingText}>Analyzing plant...</Text>
+            </View>
+          )}
+
+          {analysisResult && showAddModal && (
+            <View style={styles.analysisResult}>
+              <Text style={styles.analysisTitle}>Plant Analysis:</Text>
+              <Text style={styles.analysisText}>
+                {analysisResult.result?.classification?.suggestions?.[0]?.name || 'Unknown'}
+              </Text>
+              {analysisResult.result?.classification?.suggestions?.[0]?.details?.diseases && (
+                <View style={styles.diseaseInfo}>
+                  <Text style={styles.diseaseTitle}>Health Status:</Text>
+                  <Text style={styles.diseaseText}>
+                    {analysisResult.result.classification.suggestions[0].details.diseases}
+                  </Text>
+                </View>
+              )}
+              {analysisResult.result?.classification?.suggestions?.[0]?.details?.recommendations && (
+                <View style={styles.recommendationsInfo}>
+                  <Text style={styles.recommendationsTitle}>Care Recommendations:</Text>
+                  <Text style={styles.recommendationsText}>
+                    {analysisResult.result.classification.suggestions[0].details.recommendations}
+                  </Text>
+                </View>
+              )}
+              {analysisResult.result?.classification?.suggestions?.[0]?.probability && (
+                <Text style={styles.analysisConfidence}>
+                  Confidence: {Math.round(analysisResult.result.classification.suggestions[0].probability * 100)}%
+                </Text>
+              )}
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.submitButton}
@@ -2059,6 +2176,70 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  analyzingContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  analyzingText: {
+    marginTop: 8,
+    color: '#666',
+    fontSize: 14,
+  },
+  analysisResult: {
+    backgroundColor: '#f1f9f5',
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 10,
+    width: '100%',
+  },
+  analysisTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  analysisText: {
+    fontSize: 16,
+    color: '#0d986a',
+    fontWeight: '500',
+  },
+  analysisConfidence: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  diseaseInfo: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#fff3f3',
+    borderRadius: 6,
+  },
+  diseaseTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#d32f2f',
+    marginBottom: 4,
+  },
+  diseaseText: {
+    fontSize: 13,
+    color: '#d32f2f',
+  },
+  recommendationsInfo: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#f1f9f5',
+    borderRadius: 6,
+  },
+  recommendationsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0d986a',
+    marginBottom: 4,
+  },
+  recommendationsText: {
+    fontSize: 13,
+    color: '#333',
   },
 });
 
