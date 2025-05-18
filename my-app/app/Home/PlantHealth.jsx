@@ -6,17 +6,18 @@ import { Picker } from '@react-native-picker/picker';
 import { getBaseUrl } from '../../config';
 import FastImage from 'react-native-fast-image';
 import { useUser } from '../context/UserContext';
+const DEFAULT_PLANT_IMAGE = 'https://cdn-icons-png.flaticon.com/512/628/628324.png';
 
 
 const getImageSource = (imagePath) => {
-  
+  if (!imagePath) return { uri: DEFAULT_PLANT_IMAGE };
   
   const uri = imagePath.startsWith('http') ? imagePath : `${getBaseUrl()}${imagePath}`;
   return {
     uri,
     priority: FastImage.priority.normal,
     cache: FastImage.cacheControl.immutable
-  };
+  }; 
 };
 
 const PlantHealth = () => {
