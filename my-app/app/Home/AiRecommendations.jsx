@@ -83,13 +83,32 @@ export default function AIRecommendations() {
       const data = await res.json();
 
       if (data.result) {
+        // Process results
+        const result = data.result;
+        
+        // Ensure recommendations is always an array of strings
+        let recommendations = [];
+        if (result.recommendations) {
+          if (Array.isArray(result.recommendations)) {
+            recommendations = result.recommendations.map(item => 
+              typeof item === 'string' ? item.trim() : String(item).trim()
+            ).filter(item => item.length > 0);
+          } else if (typeof result.recommendations === 'string') {
+            // Split by newlines or semicolons if it's a single string
+            recommendations = result.recommendations
+              .split(/[;\n]/)
+              .map(item => item.trim())
+              .filter(item => item.length > 0);
+          }
+        }
+        
         setAnalysis({
-          health: data.result.diseases || 'Unknown',
-          confidence: data.result.confidence || 0,
-          recommendations: Array.isArray(data.result.recommendations)
-            ? data.result.recommendations
-            : [data.result.recommendations || 'No recommendations'],
-          issues: data.result.diseases ? [data.result.diseases] : []
+          plantName: result.plantName || 'Unknown',
+          diseases: result.diseases || 'None detected',
+          confidence: typeof result.confidence === 'number' 
+            ? result.confidence.toFixed(2) 
+            : (result.confidence || 'Unknown'),
+          recommendations: recommendations
         });
       } else {
         Alert.alert('Error', 'No analysis result received.');
@@ -157,27 +176,36 @@ export default function AIRecommendations() {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Plant Name:</Text>
-          <Text style={styles.sectionValue}>{analysis.plantName || 'Unknown'}</Text>
+          <Text style={styles.sectionValue}>{analysis.plantName}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Diseases / Health Issues:</Text>
-          <Text style={styles.sectionValue}>{analysis.diseases || 'None detected'}</Text>
+          <Text style={styles.sectionValue}>{analysis.diseases}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Confidence Level:</Text>
-          <Text style={styles.sectionValue}>{analysis.confidence || 'Unknown'}</Text>
+          <Text style={styles.sectionValue}>
+            {typeof analysis.confidence === 'number' || !isNaN(parseFloat(analysis.confidence)) 
+              ? `${(parseFloat(analysis.confidence) * 100).toFixed()}%` 
+              : analysis.confidence}
+          </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Care Recommendations:</Text>
-          {Array.isArray(analysis.recommendations) && analysis.recommendations.length > 0 ? (
-            analysis.recommendations.map((rec, idx) => (
-              <Text key={idx} style={styles.sectionValue}>• {rec}</Text>
-            ))
+          {analysis.recommendations && analysis.recommendations.length > 0 ? (
+            <View style={styles.recommendationsList}>
+              {analysis.recommendations.map((rec, idx) => (
+                <View key={idx} style={styles.recommendationRow}>
+                  <Text style={styles.recommendationBullet}>•</Text>
+                  <Text style={styles.recommendationText}>{rec}</Text>
+                </View>
+              ))}
+            </View>
           ) : (
-            <Text style={styles.sectionValue}>No recommendations</Text>
+            <Text style={styles.sectionValue}>No recommendations available</Text>
           )}
         </View>
       </View>
@@ -320,12 +348,24 @@ const styles = StyleSheet.create({
   },
   analysisSection: {
     padding: 16,
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   analysisHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    paddingBottom: 8,
   },
   analysisTitle: {
     fontSize: 18,
@@ -333,15 +373,36 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   section: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   sectionLabel: {
     fontWeight: 'bold',
     color: '#0d986a',
-    marginBottom: 2,
+    marginBottom: 6,
+    fontSize: 16,
   },
   sectionValue: {
     color: '#333',
-    marginLeft: 8,
+    fontSize: 15,
+    marginLeft: 4,
   },
-}); 
+  recommendationsList: {
+    marginTop: 4,
+  },
+  recommendationRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    paddingRight: 8,
+  },
+  recommendationBullet: {
+    color: '#0d986a',
+    fontSize: 15,
+    marginRight: 6,
+    marginLeft: 4,
+  },
+  recommendationText: {
+    color: '#333',
+    fontSize: 15,
+    flex: 1,
+  },
+});

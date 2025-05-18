@@ -635,7 +635,6 @@ app.post("/verifyManagerPin", async (req, res) => {
 });
 
 
-
 // Endpoint to identify crop and detect diseases using Gemini API
 app.post('/identify-crop-gemini', async (req, res) => {
   try {
@@ -653,7 +652,7 @@ app.post('/identify-crop-gemini', async (req, res) => {
         {
           parts: [
             {
-              text: "Analyze this plant image and provide: 1) Plant identification, 2) Any visible diseases or health issues, 3) Confidence level for each identification, 4) Care recommendations as a JSON array (recommendations). Format the response as JSON with these fields: plantName, diseases, confidence, recommendations (as an array of strings)."
+              text: "Analyze this plant image and provide: 1) Plant identification, 2) Any visible diseases or health issues, 3) Confidence level for each identification, 4) Care recommendations. Format the response as JSON with these fields: plantName, diseases, confidence (as a number between 0 and 1), recommendations (as an array of strings)."
             },
             {
               inlineData: {
@@ -673,10 +672,56 @@ app.post('/identify-crop-gemini', async (req, res) => {
     // Parse Gemini response
     const geminiResponse = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     let parsedResponse;
+    
     try {
-      parsedResponse = JSON.parse(geminiResponse);
+      // Try to find and extract JSON from the response if it's embedded in text
+      const jsonMatch = geminiResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsedResponse = JSON.parse(jsonMatch[0]);
+      } else {
+        parsedResponse = JSON.parse(geminiResponse);
+      }
+      
+      // Ensure recommendations is always an array
+      if (!Array.isArray(parsedResponse.recommendations)) {
+        if (typeof parsedResponse.recommendations === 'string') {
+          parsedResponse.recommendations = [parsedResponse.recommendations];
+        } else {
+          parsedResponse.recommendations = [];
+        }
+      }
+      
     } catch (error) {
-      parsedResponse = { plantName: "Unknown", diseases: "Unknown", confidence: "Unknown", recommendations: geminiResponse };
+      console.error('Error parsing Gemini response:', error.message);
+      
+      // If JSON parsing fails, extract information from text
+      const plantNameMatch = geminiResponse.match(/Plant(?: identification)?:?\s*([^\n.]+)/i);
+      const diseasesMatch = geminiResponse.match(/Disease(?:s)?(?:\s*\/?\s*health issues)?:?\s*([^\n.]+)/i);
+      const confidenceMatch = geminiResponse.match(/Confidence:?\s*([\d.]+)/i);
+      
+      // Extract recommendations as bullet points or numbered list
+      const recommendationsMatches = geminiResponse.match(/(?:^|\n)(?:[\s•\-*]+|\d+\.\s*)([^\n•\-*\d.][^\n]+)/gm);
+      
+      parsedResponse = {
+        plantName: plantNameMatch ? plantNameMatch[1].trim() : "Unknown",
+        diseases: diseasesMatch ? diseasesMatch[1].trim() : "None detected",
+        confidence: confidenceMatch ? parseFloat(confidenceMatch[1]) : "Unknown",
+        recommendations: recommendationsMatches 
+          ? recommendationsMatches.map(r => r.replace(/^[\s•\-*]+|\d+\.\s*/, '').trim()) 
+          : []
+      };
+      
+      // If we couldn't extract recommendations, use parts of the text
+      if (parsedResponse.recommendations.length === 0) {
+        // Split by newlines and remove short lines
+        const lines = geminiResponse.split('\n')
+          .filter(line => line.trim().length > 10)
+          .map(line => line.trim());
+          
+        if (lines.length > 0) {
+          parsedResponse.recommendations = lines.slice(0, 5); // Limit to 5 lines
+        }
+      }
     }
 
     res.json({ result: parsedResponse });
