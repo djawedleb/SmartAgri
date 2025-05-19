@@ -886,7 +886,7 @@ const handleEditPlant = (plant) => {
       onRequestClose={() => setShowEditModal(false)} 
     >
       <View style={styles.modalOverlay}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', marginTop: selectedPlant?.Image ? 20 : 0, paddingBottom: selectedPlant?.Image ? 20 : 0 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', marginTop: 20 , paddingBottom: 20 }}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Plant</Text>

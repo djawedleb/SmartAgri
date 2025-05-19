@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { LoginDataProvider } from './context/LoginDataContext';
 import { UserProvider } from './context/UserContext';
+import { RefreshProvider } from './context/RefreshContext';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 
@@ -31,7 +32,8 @@ export default function RootLayout() {
 
   return (
     <LoginDataProvider>
-     <UserProvider>  
+     <UserProvider> 
+      <RefreshProvider> 
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -41,6 +43,7 @@ export default function RootLayout() {
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
+    </RefreshProvider>
     </UserProvider>
     </LoginDataProvider>
   );

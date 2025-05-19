@@ -479,11 +479,31 @@ app.put("/updateGreenhouse/:id", async (req, res) => {
 app.post("/DeleteGreenhouse", async (req, res) => {
   try {
     const { id } = req.body;
-    const deletedGreenhouse = await Greenhouse.findByIdAndDelete(id);
-    if (!deletedGreenhouse) {
-      return res.status(404).json({ message: 'Greenhouse not found' });
+    
+    // Delete all plants associated with this greenhouse
+    const plants = await Plant.find({ Greenhouse: id });
+    
+    // Delete images for all associated plants
+    for (const plant of plants) {
+      if (plant.Image) {
+        const imagePath = path.join(__dirname, plant.Image);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+          console.log('Deleted plant image file:', imagePath);
+        }
+      }
     }
-    res.json({ message: 'Greenhouse deleted successfully' });
+    // Delete all associated plants
+    await Plant.deleteMany({ Greenhouse: id });
+    console.log(`Deleted ${plants.length} plants associated with greenhouse`);
+
+    // Delete the greenhouse
+    const deletedGreenhouse = await Greenhouse.findByIdAndDelete(id);
+    
+    res.json({ 
+      message: 'Greenhouse and associated plants deleted successfully',
+      deletedPlantsCount: plants.length
+    });
   } catch (error) {
     console.error('Error deleting greenhouse:', error);
     res.status(500).json({ error: 'Server error' });

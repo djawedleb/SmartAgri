@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Modal, Alert, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Modal, Alert, Platform, Dimensions, ActivityIndicator } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -8,13 +8,17 @@ import { getBaseUrl } from '../../config';
 import { useUser } from '../context/UserContext';
 
 const GreenHouses = () => {
+
   const { isPageVisible } = useUser();
+
   const GreenHouseImg = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae";
   const [greenhouses, setGreenhouses] = useState([]);
   const [selectedGreenhouse, setSelectedGreenhouse] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [mapRegion, setMapRegion] = useState({
     latitude: 0,
     longitude: 0,
@@ -68,7 +72,7 @@ const GreenHouses = () => {
   //to get all greenhouses from the server and display them
   const fetchGreenhouses = async () => {
     try {
-      setIsRefreshing(true);
+      setIsLoading(true);
       const baseUrl = getBaseUrl();
       const response = await fetch(`${baseUrl}/GetGreenhouses`);
       if (!response.ok) {
@@ -79,6 +83,22 @@ const GreenHouses = () => {
     } catch (error) {
       console.error('Error fetching greenhouses:', error);
       Alert.alert('Error', 'Failed to fetch greenhouses');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to refresh all data
+  const refreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchGreenhouses(),
+        // Add any other data fetching functions here
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      Alert.alert('Error', 'Failed to refresh data');
     } finally {
       setIsRefreshing(false);
     }
@@ -482,7 +502,6 @@ const GreenHouses = () => {
           name: '',
           location: '',
           image: null,
-          coordinates: null
         });
       }}
     >
@@ -501,7 +520,6 @@ const GreenHouses = () => {
                     name: '',
                     location: '',
                     image: null,
-                    coordinates: null
                   });
                 }}
                 style={styles.closeButton}
@@ -591,7 +609,7 @@ const GreenHouses = () => {
         style={styles.greenhouseImage} 
       />
       <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
+        <View style={[styles.cardHeader, !isPageVisible('Sensors') && styles.centeredHeader]}>
           <Text style={styles.greenhouseName}>{greenhouse.Name}</Text>
           {isPageVisible('Sensors') && (
             <View style={styles.cardActions}>
@@ -634,20 +652,22 @@ const GreenHouses = () => {
             </View>
           )}
         </View>
-        <View style={styles.sensorGrid}>
-          <View style={styles.sensorItem}>
-            <Icon name="white-balance-sunny" size={28} color="#0d986a" />
-            <Text style={styles.sensorValue}>59%</Text>
+        <View style={styles.readingsContainer}>
+          <View style={styles.readingItem}>
+            <Icon name="white-balance-sunny" size={24} color="#333" />
+            <Text style={styles.readingValue}>59%</Text>
           </View>
-          <View style={styles.sensorDivider} />
-          <View style={styles.sensorItem}>
-            <Icon name="thermometer" size={28} color="#0d986a" />
-            <Text style={styles.sensorValue}>30°C</Text>
+          <View style={styles.readingItem}>
+            <Icon name="thermometer" size={24} color="#333" />
+            <Text style={styles.readingValue}>30°C</Text>
           </View>
-          <View style={styles.sensorDivider} />
-          <View style={styles.sensorItem}>
-            <Icon name="water-percent" size={28} color="#0d986a" />
-            <Text style={styles.sensorValue}>65%</Text>
+          <View style={styles.readingItem}>
+            <Icon name="water-percent" size={24} color="#999" />
+            <Text style={styles.readingValue}>Off</Text>
+          </View>
+          <View style={styles.readingItem}>
+            <Icon name="waves" size={24} color="#999" />
+            <Text style={styles.readingValue}>Off</Text>
           </View>
         </View>
       </View>
@@ -682,80 +702,86 @@ const GreenHouses = () => {
               style={isRefreshing && styles.refreshingIcon}
             />
           </TouchableOpacity>
-          {isPageVisible('Sensors') && !selectedGreenhouse && (
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={() => {
-                setIsEditMode(false);
-                setFormData({
-                  name: '',
-                  location: '',
-                  image: null,
-                  coordinates: null
-                });
-                setIsModalVisible(true);
-              }}
-            >
-              <Icon name="plus" size={24} color="#0d986a" />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {selectedGreenhouse ? (
-          // Detailed Greenhouse View
-          <View>
-            <Image 
-              source={{ uri: selectedGreenhouse.Image || GreenHouseImg }} 
-              style={styles.detailImage}
-            />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0d986a" />
+          <Text style={styles.loadingText}>Loading greenhouses...</Text>
+        </View>
+      ) : (
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {selectedGreenhouse ? (
+            // Detailed Greenhouse View
+            <View>
+             
+              <Image 
+                source={{ uri: selectedGreenhouse.Image || GreenHouseImg }} 
+                style={styles.detailImage}
+              />
 
-            <Text style={styles.sectionTitle}>Plants</Text>
-            <View style={styles.plantsContainer}>
-              {plants.length > 0 ? (
-                plants.map(renderPlantCard)
-              ) : (
-                <Text style={styles.noPlantsText}>No plants in this greenhouse</Text>
-              )}
-            </View>
+              <Text style={styles.sectionTitle}>Plants</Text>
+              <View style={styles.plantsContainer}>
+                {plants.length > 0 ? (
+                  plants.map(renderPlantCard)
+                ) : (
+                  <Text style={styles.noPlantsText}>No plants in this greenhouse</Text>
+                )}
+              </View>
 
-            <Text style={styles.sectionTitle}>Property</Text>
-            <View style={styles.propertyCard}>
-              <View style={styles.mapContainer}>
-                <MapView
-                  style={styles.map}
-                  region={{
-                    latitude: parseFloat(selectedGreenhouse.Location.split(',')[0]),
-                    longitude: parseFloat(selectedGreenhouse.Location.split(',')[1]),
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }}
-                  scrollEnabled={false}
-                >
-                  <Marker
-                    coordinate={{
+              <Text style={styles.sectionTitle}>Property</Text>
+              <View style={styles.propertyCard}>
+                <View style={styles.mapContainer}>
+                  <MapView
+                    style={styles.map}
+                    region={{
                       latitude: parseFloat(selectedGreenhouse.Location.split(',')[0]),
                       longitude: parseFloat(selectedGreenhouse.Location.split(',')[1]),
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
                     }}
-                    title={selectedGreenhouse.Name}
-                  />
-                </MapView>
-                <View style={styles.mapOverlay}>
-                  <Text style={styles.mapTitle}>{selectedGreenhouse.Name}</Text>
-                  <Text style={styles.mapSubtitle}>Location: {selectedGreenhouse.Location}</Text>
+                    scrollEnabled={false}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: parseFloat(selectedGreenhouse.Location.split(',')[0]),
+                        longitude: parseFloat(selectedGreenhouse.Location.split(',')[1]),
+                      }}
+                      title={selectedGreenhouse.Name}
+                    />
+                  </MapView>
+                  <View style={styles.mapOverlay}>
+                    <Text style={styles.mapTitle}>{selectedGreenhouse.Name}</Text>
+                    <Text style={styles.mapSubtitle}>Location: {selectedGreenhouse.Location}</Text>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
-        ) : (
-          greenhouses.map(renderGreenhouseCard)
-        )}
-      </ScrollView>
+          ) : greenhouses.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Icon name="greenhouse" size={80} color="#ccc" />
+              <Text style={styles.emptyText}>No Greenhouses</Text>
+              <Text style={styles.emptySubText}>Add your first greenhouse to get started</Text>
+            </View>
+          ) : (
+            // Greenhouse List View
+            greenhouses.map(renderGreenhouseCard)
+          )}
+        </ScrollView>
+      )}
+
+      {!selectedGreenhouse && (
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setIsModalVisible(true)}
+        >
+          <Icon name="plus" size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {renderModal()}
       {renderMapModal()}
@@ -810,13 +836,6 @@ const styles = StyleSheet.create({
   refreshingIcon: {
     transform: [{ rotate: '45deg' }],
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
   greenhouseCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -831,7 +850,7 @@ const styles = StyleSheet.create({
   },
   greenhouseImage: {
     width: '100%',
-    height: 180,
+    height: 200,
     resizeMode: 'cover',
   },
   cardContent: {
@@ -843,10 +862,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  greenhouseName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+  centeredHeader: {
+    justifyContent: 'center',
   },
   cardActions: {
     flexDirection: 'row',
@@ -856,41 +873,41 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f1f9f5',
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   removeButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#FF4444',
   },
-  sensorGrid: {
+  greenhouseName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+  },
+  readingsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  readingItem: {
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 16,
   },
-  sensorItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 8,
-  },
-  sensorDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#e9ecef',
-  },
-  sensorValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+  readingValue: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#666',
   },
   detailImage: {
     width: '100%',
-    height: 250,
+    height: 200,
     resizeMode: 'cover',
   },
   sectionTitle: {
@@ -1036,6 +1053,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
+  },
+  scrollContent: {
+    paddingBottom: 80,
   },
   modalOverlay: {
     flex: 1,
@@ -1258,6 +1278,34 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 16,
+  },
+  emptySubText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 
