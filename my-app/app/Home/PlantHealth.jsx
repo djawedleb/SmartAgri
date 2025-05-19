@@ -1293,31 +1293,6 @@ const handleEditPlant = (plant) => {
 
       <View style={styles.cardActions}>
         <TouchableOpacity 
-          style={styles.reportButton}
-          onPress={() => {
-            Alert.alert(
-              'Generate Report',
-              'Would you like to generate a detailed health report for this plant?',
-              [
-                {
-                  text: 'Cancel',
-                  style: 'cancel',
-                },
-                {
-                  text: 'Generate',
-                  onPress: () => {
-                    Alert.alert('Success', 'Report generated successfully');
-                  },
-                },
-              ],
-            );
-          }}
-        >
-          <Icon name="file-document-outline" size={20} color="#0d986a" />
-          <Text style={styles.reportButtonText}>Generate Report</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
           style={styles.detailsButton}
           onPress={() => handleViewDetails(plant)}
         >
@@ -1490,15 +1465,17 @@ const renderCustomFilterModal = () => (
       {renderAddModal()}
       {renderEditStateModal()}
 
-      <TouchableOpacity 
-        style={styles.addButton}
-        onPress={() => {
-          refreshGreenhouses();
-          setShowAddModal(true);
-        }}
-      >
-        <Icon name="plus" size={24} color="#fff" />
-      </TouchableOpacity>
+      {isPageVisible('Sensors') && (
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => {
+            refreshGreenhouses();
+            setShowAddModal(true);
+          }}
+        >
+          <Icon name="plus" size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {renderCustomFilterModal()}
     </View>
@@ -1638,16 +1615,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     gap: 12,
   },
-  reportButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f1f9f5',
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 8,
-  },
   detailsButton: {
     flex: 1,
     flexDirection: 'row',
@@ -1656,11 +1623,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f9f5',
     paddingVertical: 10,
     borderRadius: 12,
-  },
-  reportButtonText: {
-    color: '#0d986a',
-    fontSize: 15,
-    fontWeight: '600',
   },
   detailsButtonText: {
     color: '#0d986a',

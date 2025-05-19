@@ -5,8 +5,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { getBaseUrl } from '../../config';
+import { useUser } from '../context/UserContext';
 
 const GreenHouses = () => {
+  const { isPageVisible } = useUser();
   const GreenHouseImg = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae";
   const [greenhouses, setGreenhouses] = useState([]);
   const [selectedGreenhouse, setSelectedGreenhouse] = useState(null);
@@ -591,44 +593,46 @@ const GreenHouses = () => {
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <Text style={styles.greenhouseName}>{greenhouse.Name}</Text>
-          <View style={styles.cardActions}>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => {
-                setIsEditMode(true);
-                setSelectedGreenhouse(greenhouse);
-                setFormData({
-                  name: greenhouse.Name,
-                  location: greenhouse.Location,
-                  image: greenhouse.Image
-                });
-                setIsModalVisible(true);
-              }}
-            >
-              <Icon name="pencil" size={20} color="#0d986a" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.removeButton]}
-              onPress={() => {
-                Alert.alert(
-                  'Remove Greenhouse',
-                  'Are you sure you want to remove this greenhouse?',
-                  [
-                    {
-                      text: 'Cancel',
-                      style: 'cancel',
-                    },
-                    {
-                      text: 'Remove',
-                      onPress: () => handleDeleteGreenhouse(greenhouse._id),
-                    },
-                  ],
-                );
-              }}
-            >
-              <Icon name="delete" size={20} color="#FF4444" />
-            </TouchableOpacity>
-          </View>
+          {isPageVisible('Sensors') && (
+            <View style={styles.cardActions}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => {
+                  setIsEditMode(true);
+                  setSelectedGreenhouse(greenhouse);
+                  setFormData({
+                    name: greenhouse.Name,
+                    location: greenhouse.Location,
+                    image: greenhouse.Image
+                  });
+                  setIsModalVisible(true);
+                }}
+              >
+                <Icon name="pencil" size={20} color="#0d986a" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.removeButton]}
+                onPress={() => {
+                  Alert.alert(
+                    'Remove Greenhouse',
+                    'Are you sure you want to remove this greenhouse?',
+                    [
+                      {
+                        text: 'Cancel',
+                        style: 'cancel',
+                      },
+                      {
+                        text: 'Remove',
+                        onPress: () => handleDeleteGreenhouse(greenhouse._id),
+                      },
+                    ],
+                  );
+                }}
+              >
+                <Icon name="delete" size={20} color="#FF4444" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
         <View style={styles.sensorGrid}>
           <View style={styles.sensorItem}>
@@ -678,6 +682,23 @@ const GreenHouses = () => {
               style={isRefreshing && styles.refreshingIcon}
             />
           </TouchableOpacity>
+          {isPageVisible('Sensors') && !selectedGreenhouse && (
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={() => {
+                setIsEditMode(false);
+                setFormData({
+                  name: '',
+                  location: '',
+                  image: null,
+                  coordinates: null
+                });
+                setIsModalVisible(true);
+              }}
+            >
+              <Icon name="plus" size={24} color="#0d986a" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -735,15 +756,6 @@ const GreenHouses = () => {
           greenhouses.map(renderGreenhouseCard)
         )}
       </ScrollView>
-
-      {!selectedGreenhouse && (
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => setIsModalVisible(true)}
-        >
-          <Icon name="plus" size={24} color="white" />
-        </TouchableOpacity>
-      )}
 
       {renderModal()}
       {renderMapModal()}

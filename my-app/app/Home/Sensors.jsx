@@ -15,7 +15,7 @@ const Sensors = () => {
 
   // Mock data for 3 Arduinos
   const arduinoData = {
-    'Arduino 1': [
+    'GreenHouse 1': [
       {
         id: 1,
         name: 'Soil Moisture',
@@ -57,7 +57,7 @@ const Sensors = () => {
         unit: ' lux'
       }
     ],
-    'Arduino 2': [
+    'GreenHouse 2': [
       {
         id: 1,
         name: 'Soil Moisture',
@@ -99,7 +99,7 @@ const Sensors = () => {
         unit: ' lux'
       }
     ],
-    'Arduino 3': [
+    'GreenHouse 3': [
       {
         id: 1,
         name: 'Soil Moisture',
