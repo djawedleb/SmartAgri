@@ -478,6 +478,7 @@ const PlantHealth = () => {
       formData.append('name', newPlant.Name);
       formData.append('greenhouse', newPlant.Greenhouse);
       formData.append('status', 'healthy'); // Set default status
+      formData.append('dateAdded', new Date().toISOString()); // Add current date
       
       if (newPlant.Image) {
         const imageUri = newPlant.Image;
@@ -495,6 +496,7 @@ const PlantHealth = () => {
         name: newPlant.Name,
         greenhouse: newPlant.Greenhouse,
         status: 'healthy',
+        dateAdded: new Date().toISOString(),
         hasImage: !!newPlant.Image
       });
 
@@ -898,6 +900,13 @@ const handleEditPlant = (plant) => {
                     <Icon name="leaf" size={16} color="#0d986a" />
                     <Text style={styles.detailsStatusText}>Healthy</Text>
                   </View>
+                  <Text style={styles.dateText}>
+                    Added: {selectedPlant.dateAdded ? new Date(selectedPlant.dateAdded).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    }) : 'N/A'}
+                  </Text>
                 </View>
               </View>
 
@@ -1315,45 +1324,51 @@ const handleEditPlant = (plant) => {
         <View style={styles.plantInfo}>
           <Text style={styles.plantName}>{plant.Name}</Text>
           <Text style={styles.greenhouseName}>
-          {greenhouses.find(g => g._id === plant.Greenhouse)?.Name || 'Unknown Greenhouse'}
+            {greenhouses.find(g => g._id === plant.Greenhouse)?.Name || 'Unknown Greenhouse'}
           </Text>
           <View style={styles.statusContainer}>
             <Icon name="leaf" size={16} color="#0d986a" />
             <Text style={styles.statusText}>{plant.status || 'Healthy'}</Text>
           </View>
+          <Text style={styles.dateText}>
+            Added: {plant.dateAdded ? new Date(plant.dateAdded).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }) : 'N/A'}
+          </Text>
         </View>
         <View style={styles.cardHeaderActions}>
-
           {isPageVisible('Sensors') && (
-          <TouchableOpacity 
-            style={styles.editButton}
-            onPress={() => {
-              refreshGreenhouses();
-              handleEditPlant(plant);
-            }}
-          >
-            <Icon name="pencil" size={20} color="#0d986a" />
-          </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={() => {
+                refreshGreenhouses();
+                handleEditPlant(plant);
+              }}
+            >
+              <Icon name="pencil" size={20} color="#0d986a" />
+            </TouchableOpacity>
           )}
 
           {isPageVisible('Sensors') && (
-          <TouchableOpacity 
-            style={styles.removeButton}
-            onPress={() => handleRemovePlant(plant._id || plant.id)}
-          >
-            <Icon name="delete" size={20} color="#ff4444" />
-          </TouchableOpacity>
-        )}
+            <TouchableOpacity 
+              style={styles.removeButton}
+              onPress={() => handleRemovePlant(plant._id || plant.id)}
+            >
+              <Icon name="delete" size={20} color="#ff4444" />
+            </TouchableOpacity>
+          )}
 
-        {!isPageVisible('Sensors') && (
-          <TouchableOpacity 
-            style={styles.editButton}
-            onPress={() => {
-              handleEditState(plant);
-            }}
-          >
-            <Icon name="pencil" size={20} color="#0d986a" />
-          </TouchableOpacity>
+          {!isPageVisible('Sensors') && (
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={() => {
+                handleEditState(plant);
+              }}
+            >
+              <Icon name="pencil" size={20} color="#0d986a" />
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -2122,6 +2137,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
 });
 

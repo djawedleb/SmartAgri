@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Alert, Image } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getBaseUrl } from '../../config';
@@ -8,6 +8,8 @@ const ManageUsers = () => {
   const [editingUser, setEditingUser] = useState(null); //so we can know when we are editing
   const [usersPersonal, setUsersPersonal] = useState([]); //to display the user saved data
   const [refresh, setRefresh] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null); // Add this line for image modal
+  const [showPassword, setShowPassword] = useState(false); // Add this line for password visibility
     
   const [newUser, setNewUser] = useState({  //to save the new user data
     username: '',
@@ -182,12 +184,28 @@ function ResetHook(event) {
 
       <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 }}>
         {/* User List */}
-      <View style={styles.userList}>
+        <View style={styles.userList}>
           {users.map(user => (
             <View key={user._id} style={styles.userCard}>
               <View style={styles.userInfo}>
-              <Pressable style={styles.actionButton} onPress={() => account(user._id)}>
-                <Icon name="account-circle" size={40} color="#0d986a" />
+                <Pressable 
+                  style={styles.actionButton} 
+                  onPress={() => {
+                    if (user.profilePicture) {
+                      setSelectedImage(`${getBaseUrl()}${user.profilePicture}`);
+                    }
+                  }}
+                >
+                  {user.profilePicture ? (
+                    <Image 
+                      source={{ uri: `${getBaseUrl()}${user.profilePicture}` }} 
+                      style={styles.userAvatar}
+                    />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Icon name="account-circle" size={40} color="#0d986a" />
+                    </View>
+                  )}
                 </Pressable>
                 <View style={styles.userDetails}>
                   <Text style={styles.userName}>{user.UserName}</Text>
@@ -209,7 +227,16 @@ function ResetHook(event) {
         {/* Add User Button */}
         <Pressable 
           style={styles.addButton}
-          onPress={() => setModalVisible(true)}
+          onPress={() => {
+            setNewUser({
+              username: '',
+              email: '',
+              password: '',
+              role: 'farmer'
+            });
+            setEditingUser(null);
+            setModalVisible(true);
+          }}
         >
             <Icon name="plus" size={24} color="white" />
             <Text style={styles.addButtonText}>Add New User</Text>
@@ -220,7 +247,16 @@ function ResetHook(event) {
           animationType="slide"
           transparent={true}
           visible={isModalVisible}
-          onRequestClose={() => setModalVisible(false)}
+          onRequestClose={() => {
+            setModalVisible(false);
+            setNewUser({
+              username: '',
+              email: '',
+              password: '',
+              role: 'farmer'
+            });
+            setEditingUser(null);
+          }}
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
@@ -256,13 +292,25 @@ function ResetHook(event) {
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter password"
-                  value={newUser.password}
-                  onChangeText={(text) => setNewUser({...newUser, password: text})}
-                  secureTextEntry={!editingUser}  //so the password shows when editing
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput]}
+                    placeholder="Enter password"
+                    value={newUser.password}
+                    onChangeText={(text) => setNewUser({...newUser, password: text})}
+                    secureTextEntry={!showPassword}
+                  />
+                  <Pressable 
+                    style={styles.passwordToggle}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Icon 
+                      name={showPassword ? "eye-off" : "eye"} 
+                      size={24} 
+                      color="#666" 
+                    />
+                  </Pressable>
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
@@ -295,6 +343,30 @@ function ResetHook(event) {
                 </Text>
               </Pressable>
             </View>
+          </View>
+        </Modal>
+
+        {/* Image Preview Modal */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={!!selectedImage}
+          onRequestClose={() => setSelectedImage(null)}
+        >
+          <View style={styles.imageModalContainer}>
+            <Pressable 
+              style={styles.imageModalCloseButton}
+              onPress={() => setSelectedImage(null)}
+            >
+              <Icon name="close" size={24} color="white" />
+            </Pressable>
+            {selectedImage && (
+              <Image 
+                source={{ uri: selectedImage }} 
+                style={styles.imageModalImage}
+                resizeMode="contain"
+              />
+            )}
           </View>
         </Modal>
       </ScrollView>
@@ -450,6 +522,53 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  userAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#f0f0f0',
+  },
+  avatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalCloseButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1,
+    padding: 10,
+  },
+  imageModalImage: {
+    width: '90%',
+    height: '80%',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    backgroundColor: 'white',
+  },
+  passwordInput: {
+    flex: 1,
+    borderWidth: 0,
+    marginRight: 10,
+  },
+  passwordToggle: {
+    padding: 10,
   },
 });
 

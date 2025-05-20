@@ -15,7 +15,7 @@ import { useUser } from '../context/UserContext';
 
 export default function TabLayout() {
 
-  const { isPageVisible } = useUser();
+  const { isPageVisible, isManager } = useUser();
 
   const colorScheme = useColorScheme();
   const router = useRouter();
@@ -207,15 +207,17 @@ export default function TabLayout() {
                 <Text style={styles.sidebarText}>Manage Users</Text>
                 <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
               </Pressable>
- )}
-              <Pressable 
-                style={styles.sidebarItem}
-                onPress={() => handleNavigation('/Home/Account')}
-              >
-                <Icon name="account-outline" size={24} color="#0d986a" />
-                <Text style={styles.sidebarText}>Account</Text>
-                <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
-              </Pressable>
+              )}
+              {!isManager() && (
+                <Pressable 
+                  style={styles.sidebarItem}
+                  onPress={() => handleNavigation('/Home/Account')}
+                >
+                  <Icon name="account-outline" size={24} color="#0d986a" />
+                  <Text style={styles.sidebarText}>Account</Text>
+                  <Icon name="chevron-right" size={24} color="#666" style={styles.chevron} />
+                </Pressable>
+              )}
 
               <Pressable 
                 style={styles.sidebarItem}

@@ -18,19 +18,21 @@ export const UserProvider = ({ children }) => {
   const isTechnician = () => userRole === 'technicien';
 
   const isPageVisible = (pageName) => {
-    // Manager can see everything
-    if (isManager()) return true;
+    // Manager can see everything except Account
+    if (isManager()) {
+      const hiddenPages = ['Account'];
+      return !hiddenPages.includes(pageName);
+    }
 
     // Farmer restrictions
     if (isFarmer()) {
       const hiddenPages = ['ManageUsers', 'Sensors'];
-      return !hiddenPages.includes(pageName); //If the page is in hiddenPages → return false (hide the page)
-      //If the page is NOT in hiddenPages → return true (show the page)
+      return !hiddenPages.includes(pageName);
     }
 
-    // Technicien can only access Technicien folder
+    // Technicien can access Technicien folder and Account
     if (isTechnician()) {
-      return pageName.startsWith('Technicien/');
+      return pageName.startsWith('Technicien/') ;
     }
 
     return false;
