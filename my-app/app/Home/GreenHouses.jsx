@@ -9,7 +9,7 @@ import { useUser } from '../context/UserContext';
 
 const GreenHouses = () => {
 
-  const { isPageVisible } = useUser();
+  const { isPageVisible, isManager } = useUser();
 
   const GreenHouseImg = "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae";
   const [greenhouses, setGreenhouses] = useState([]);
@@ -192,6 +192,9 @@ const GreenHouses = () => {
         </View>
         <View style={styles.plantDetails}>
           <Text style={styles.plantSize}>Status: {plant.status || 'Healthy'}</Text>
+          <Text style={styles.plantDate}>
+            Added: {plant.dateAdded ? new Date(plant.dateAdded).toLocaleDateString() : 'N/A'}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -774,7 +777,7 @@ const GreenHouses = () => {
         </ScrollView>
       )}
 
-      {!selectedGreenhouse && (
+      {!selectedGreenhouse && isManager() && (
         <TouchableOpacity 
           style={styles.addButton}
           onPress={() => setIsModalVisible(true)}
@@ -984,6 +987,11 @@ const styles = StyleSheet.create({
   plantSize: {
     fontSize: 13,
     color: '#666',
+  },
+  plantDate: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
   },
   ratingContainer: {
     flexDirection: 'row',

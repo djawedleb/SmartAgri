@@ -15,6 +15,7 @@ const SerialPort = require('serialport'); //to handle serial communication with 
 const Readline = require('@serialport/parser-readline'); //to parse the data from the serial port
 const axios = require('axios');
 
+
 const port = 3000;
 const app = express();
 app.use(bodyParser.json({ limit: '10mb' })); // Handles JSON data, increased limit
@@ -71,7 +72,8 @@ const loginSchema = new mongoose.Schema({
     UserName: String,
     email: String,
     Password: String,
-    Role: String
+    Role: String,
+    profilePicture: String
   });
   
   const User = mongoose.model("User", AddUserSchema);
@@ -81,6 +83,10 @@ const loginSchema = new mongoose.Schema({
     Name: String,
     Greenhouse: String,
     Image: String,
+    dateAdded: {
+      type: Date,
+      default: Date.now
+    },
     lastChecked: {
       type: String,
       format: 'HH:mm' // 24-hour format with minutes
@@ -176,7 +182,13 @@ app.post("/AddUser", function(req, res){
     // Endpoint to get all users from ManageUsers page UseEffect
    app.get("/GetUsers", async (req, res) => {
     try {
-      const users = await User.find({});
+      const users = await User.find({}, {
+        UserName: 1,
+        email: 1,
+        Role: 1,
+        profilePicture: 1,
+        _id: 1
+      });
       res.json(users);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -253,10 +265,15 @@ app.post("/AddUser", function(req, res){
       const AddedPlant = req.body;
       const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
       
+      // Create a new date object
+      const currentDate = new Date();
+      console.log('Setting dateAdded to:', currentDate);
+      
       const NewPlant = new Plant({
         Name: AddedPlant.name,
         Greenhouse: AddedPlant.greenhouse,
-        Image: imagePath
+        Image: imagePath,
+        dateAdded: currentDate
       });
       
       const savedPlant = await NewPlant.save();
@@ -522,14 +539,6 @@ app.post("/explore", function(req, res){
         console.log("item saved successfully");
     });
 
-      // to test in postman
-      /*
-         {
-          "UserName": "testuser",
-          "Password": "testpassword"
-         }
-      */
-
  app.listen(8080, function() {
     console.log("Server started on port 8080");
   });
@@ -623,28 +632,6 @@ app.get("/GetPlant/:id", async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch plant' });
   }
 });
-
-/*
-// Load model once at startup
-let model;
-const labels = [
-  "Tomato___Early_blight",
-  "Tomato___Late_blight",
-  "Tomato___healthy"
-  // Add more labels based on your model
-];
-
-async function loadModel() {
-  try {
-    model = await tf.loadLayersModel('file://model/model.json');
-    console.log('Model loaded successfully');
-  } catch (error) {
-    console.error('Error loading model:', error);
-  }
-}
-
-loadModel();
-*/
 
 // Manager PIN verification route
 app.post("/verifyManagerPin", async (req, res) => {
@@ -856,33 +843,159 @@ app.delete("/clearAnalysisHistory", async (req, res) => {
   }
 });
 
-// Replace this with ESP8266's IP address
-const ESP_IP = "http://192.168.1.72"; 
-
-// Polling function to get sensor data
-setInterval(async () => {
+// Endpoint to change user password
+app.post("/changePassword", async (req, res) => {
   try {
-    const response = await axios.get(`${ESP_IP}/data`);
-    console.log("Sensor data:", response.data);
-    // You can store or process it here as needed
-  } catch (err) {
-    console.error("Failed to fetch from ESP:", err.message);
-  }
-}, 100000); // 1 second
+    const { username, currentPassword, newPassword } = req.body;
+    
+    // First verify the current password
+    const loginUser = await login.findOne({ UserName: username, Password: currentPassword });
+    if (!loginUser) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
 
-// Endpoint to fetch sensor data from Arduino
-app.get("/arduino-data/:ipAddress", async (req, res) => {
-  try {
-    const { ipAddress } = req.params;
-    const response = await axios.get(`http://${ipAddress}/data`, {
-      timeout: 5000 // 5 second timeout
-    });
-    res.json(response.data);
+    // Update password in both collections
+    await User.findOneAndUpdate(
+      { UserName: username },
+      { Password: newPassword }
+    );
+    
+    await login.findOneAndUpdate(
+      { UserName: username },
+      { Password: newPassword }
+    );
+
+    res.json({ message: 'Password changed successfully' });
   } catch (error) {
-    console.error('Error fetching Arduino data:', error.message);
-    res.status(500).json({ 
-      error: 'Failed to fetch sensor data',
-      message: error.message
-    });
+    console.error('Error changing password:', error);
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
+
+// Endpoint to update user profile
+app.post("/updateProfile", upload.single('profilePicture'), async (req, res) => {
+  try {
+    const { username, name } = req.body;
+    const profilePicture = req.file ? `/uploads/${req.file.filename}` : null;
+    
+    // Update user profile in User collection
+    const updateData = { UserName: name };
+    if (profilePicture) {
+      updateData.profilePicture = profilePicture;
+    }
+    
+    await User.findOneAndUpdate(
+      { UserName: username },
+      updateData
+    );
+    
+    // Update username in login collection if name changed
+    if (name !== username) {
+      await login.findOneAndUpdate(
+        { UserName: username },
+        { UserName: name }
+      );
+    }
+
+    res.json({ 
+      message: 'Profile updated successfully',
+      profilePicture: profilePicture
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// // Replace this with ESP8266's IP address
+// const ESP_IP = "http://192.168.1.72"; 
+
+// // Polling function to get sensor data
+// setInterval(async () => {
+//   try {
+//     const response = await axios.get(`${ESP_IP}/data`);
+//     console.log("Sensor data:", response.data);
+//     // You can store or process it here as needed
+//   } catch (err) {
+//     console.error("Failed to fetch from ESP:", err.message);
+//   }
+// }, 100000); // 1 second
+
+// // Endpoint to fetch sensor data from Arduino
+// app.get("/arduino-data/:ipAddress", async (req, res) => {
+//   try {
+//     const { ipAddress } = req.params;
+//     const response = await axios.get(`http://${ipAddress}/data`, {
+//       timeout: 5000 // 5 second timeout
+//     });
+//     res.json(response.data);
+//   } catch (error) {
+//     console.error('Error fetching Arduino data:', error.message);
+//     res.status(500).json({ 
+//       error: 'Failed to fetch sensor data',
+//       message: error.message
+//     });
+//   }
+// });
+
+// // Configure nodemailer with Gmail
+// const transporter = nodemailer.createTransport({
+//   service: 'gmail',
+//   auth: {
+//     user: 'smartagri.cooperation@gmail.com',
+//     pass: process.env.EMAIL_PASSWORD
+//   }
+// });
+
+// // Verify email configuration
+// transporter.verify(function(error, success) {
+//   if (error) {
+//     console.log('Email configuration error:', error);
+//   } else {
+//     console.log('Email server is ready to send messages');
+//   }
+// });
+
+// Endpoint to submit feedback via email
+// app.post("/submitFeedback", async (req, res) => {
+//   try {
+//     const { username, title, category, rating, feedback } = req.body;
+
+//     // Create email content with better formatting
+//     const mailOptions = {
+//       from: 'smartagri.cooperation@gmail.com',
+//       to: 'smartagri.cooperation@gmail.com',
+//       subject: `SmartAgri Feedback: ${title}`,
+//       html: `
+//         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+//           <h2 style="color: #0d986a; border-bottom: 2px solid #0d986a; padding-bottom: 10px;">New Feedback Received</h2>
+          
+//           <div style="margin: 20px 0;">
+//             <p style="margin: 10px 0;"><strong style="color: #333;">From User:</strong> ${username}</p>
+//             <p style="margin: 10px 0;"><strong style="color: #333;">Category:</strong> ${category}</p>
+//             <p style="margin: 10px 0;"><strong style="color: #333;">Rating:</strong> ${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</p>
+//             <p style="margin: 10px 0;"><strong style="color: #333;">Title:</strong> ${title}</p>
+//           </div>
+
+//           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin-top: 20px;">
+//             <h3 style="color: #333; margin-top: 0;">Feedback Details:</h3>
+//             <p style="color: #666; line-height: 1.6;">${feedback}</p>
+//           </div>
+
+//           <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999;">
+//             <p>This is an automated message from SmartAgri Feedback System.</p>
+//             <p>Time: ${new Date().toLocaleString()}</p>
+//           </div>
+//         </div>
+//       `
+//     };
+
+//     // Send email
+//     await transporter.sendMail(mailOptions);
+
+//     res.json({ message: 'Feedback sent successfully' });
+//   } catch (error) {
+//     console.error('Error sending feedback:', error);
+//     res.status(500).json({ error: 'Failed to send feedback' });
+//   }
+// });

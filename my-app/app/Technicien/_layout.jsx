@@ -58,7 +58,7 @@ export default function TechnicianLayout() {
 
     const handleHome = () => {
       onClose();
-      router.push('/Technician/');
+      router.push('/Technicien/');
     };
 
     return (
@@ -102,7 +102,7 @@ export default function TechnicianLayout() {
                     <View style={styles.submenu}>
                       <Pressable 
                         style={styles.submenuItem}
-                        onPress={() => handleNavigation('/Technician/Sensors')}
+                        onPress={() => handleNavigation('/Technicien/Sensors')}
                       >
                         <Icon name="chip" size={20} color="#0d986a" />
                         <Text style={styles.submenuText}>Sensors</Text>
@@ -112,7 +112,7 @@ export default function TechnicianLayout() {
 
                   <Pressable 
                     style={styles.sidebarItem}
-                    onPress={() => handleNavigation('/Technician/Account')}
+                    onPress={() => handleNavigation('/Technicien/Account')}
                   >
                     <Icon name="account-outline" size={24} color="#0d986a" />
                     <Text style={styles.sidebarText}>Account</Text>
