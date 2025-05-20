@@ -182,20 +182,7 @@ function ResetHook(event) {
 
       <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 }}>
         {/* User List */}
-
-      {/* Default Administrator */}
       <View style={styles.userList}>
-        <View key="default" style={styles.userCard}>
-          <View style={styles.userInfo}>
-          <Icon name="account-circle" size={40} color="#0d986a" />
-          <View style={styles.userDetails}>
-         <Text style={styles.userName}>John Doe</Text>
-        <Text style={styles.userRole}>Administrator</Text>
-        </View>
-      </View>
-       </View>
-
-      {/* all Users */}
           {users.map(user => (
             <View key={user._id} style={styles.userCard}>
               <View style={styles.userInfo}>
