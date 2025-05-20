@@ -38,6 +38,44 @@ const GreenHouses = () => {
   const [showResults, setShowResults] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [plants, setPlants] = useState([]);
+  const [arduinoBoards, setArduinoBoards] = useState([]);
+  const [sensorData, setSensorData] = useState({});
+
+  const fetchArduinoBoards = async () => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/GetArduinoBoards`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch Arduino boards');
+      }
+      const data = await response.json();
+      setArduinoBoards(data);
+      
+      // Fetch sensor data for each board
+      data.forEach(board => {
+        fetchSensorData(board);
+      });
+    } catch (error) {
+      console.error('Error fetching Arduino boards:', error);
+    }
+  };
+
+  const fetchSensorData = async (board) => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/arduino-data/${board.ipAddress}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch sensor data');
+      }
+      const data = await response.json();
+      setSensorData(prev => ({
+        ...prev,
+        [board.greenhouseId]: data
+      }));
+    } catch (error) {
+      console.error('Error fetching sensor data for board:', board.ipAddress, error);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -57,10 +95,21 @@ const GreenHouses = () => {
     })();
   }, []);
 
-  // Fetch greenhouses when component mounts
   useEffect(() => {
     fetchGreenhouses();
+    fetchArduinoBoards();
   }, []);
+
+  useEffect(() => {
+    // Set up polling for sensor data
+    const interval = setInterval(() => {
+      arduinoBoards.forEach(board => {
+        fetchSensorData(board);
+      });
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [arduinoBoards]); // Add arduinoBoards as a dependency
 
   // Fetch plants when a greenhouse is selected
   useEffect(() => {
@@ -314,6 +363,7 @@ const GreenHouses = () => {
     
     try {
       const baseUrl = getBaseUrl();
+      // First update the greenhouse
       const response = await fetch(`${baseUrl}/updateGreenhouse/${selectedGreenhouse._id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -328,6 +378,20 @@ const GreenHouses = () => {
         throw new Error('Network response was not ok');
       }
 
+      // Then update all Arduino boards associated with this greenhouse
+      const boardsResponse = await fetch(`${baseUrl}/UpdateArduinoBoardsByGreenhouse`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          greenhouseId: selectedGreenhouse._id,
+          greenhouseName: formData.name
+        }),
+      });
+
+      if (!boardsResponse.ok) {
+        throw new Error('Failed to update Arduino boards');
+      }
+
       await fetchGreenhouses();
       Alert.alert('Success', `Updated greenhouse "${formData.name}"`);
       
@@ -338,7 +402,7 @@ const GreenHouses = () => {
         location: '',
         image: null
       });
-      } catch (error) {
+    } catch (error) {
       console.error('Error updating greenhouse:', error);
       Alert.alert('Error', 'Failed to update greenhouse');
     }
@@ -598,81 +662,96 @@ const GreenHouses = () => {
   );
 
   // to display the greenhouses cards
-  const renderGreenhouseCard = (greenhouse) => (
-    <TouchableOpacity
-      key={greenhouse._id}
-      style={styles.greenhouseCard}
-      onPress={() => setSelectedGreenhouse(greenhouse)}
-    >
-      <Image 
-        source={{ uri: greenhouse.Image || GreenHouseImg }} 
-        style={styles.greenhouseImage} 
-      />
-      <View style={styles.cardContent}>
-        <View style={[styles.cardHeader, !isPageVisible('Sensors') && styles.centeredHeader]}>
-          <Text style={styles.greenhouseName}>{greenhouse.Name}</Text>
-          {isPageVisible('Sensors') && (
-            <View style={styles.cardActions}>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => {
-                  setIsEditMode(true);
-                  setSelectedGreenhouse(greenhouse);
-                  setFormData({
-                    name: greenhouse.Name,
-                    location: greenhouse.Location,
-                    image: greenhouse.Image
-                  });
-                  setIsModalVisible(true);
-                }}
-              >
-                <Icon name="pencil" size={20} color="#0d986a" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.removeButton]}
-                onPress={() => {
-                  Alert.alert(
-                    'Remove Greenhouse',
-                    'Are you sure you want to remove this greenhouse?',
-                    [
-                      {
-                        text: 'Cancel',
-                        style: 'cancel',
-                      },
-                      {
-                        text: 'Remove',
-                        onPress: () => handleDeleteGreenhouse(greenhouse._id),
-                      },
-                    ],
-                  );
-                }}
-              >
-                <Icon name="delete" size={20} color="#FF4444" />
-              </TouchableOpacity>
+  const renderGreenhouseCard = (greenhouse) => {
+    const greenhouseData = sensorData[greenhouse._id] || {};
+    
+    return (
+      <TouchableOpacity
+        key={greenhouse._id}
+        style={styles.greenhouseCard}
+        onPress={() => setSelectedGreenhouse(greenhouse)}
+      >
+        <Image 
+          source={{ uri: greenhouse.Image || GreenHouseImg }} 
+          style={styles.greenhouseImage} 
+        />
+        <View style={styles.cardContent}>
+          <View style={[styles.cardHeader, !isPageVisible('Sensors') && styles.centeredHeader]}>
+            <Text style={styles.greenhouseName}>{greenhouse.Name}</Text>
+            {isPageVisible('Sensors') && (
+              <View style={styles.cardActions}>
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => {
+                    setIsEditMode(true);
+                    setSelectedGreenhouse(greenhouse);
+                    setFormData({
+                      name: greenhouse.Name,
+                      location: greenhouse.Location,
+                      image: greenhouse.Image
+                    });
+                    setIsModalVisible(true);
+                  }}
+                >
+                  <Icon name="pencil" size={20} color="#0d986a" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.removeButton]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Remove Greenhouse',
+                      'Are you sure you want to remove this greenhouse?',
+                      [
+                        {
+                          text: 'Cancel',
+                          style: 'cancel',
+                        },
+                        {
+                          text: 'Remove',
+                          onPress: () => handleDeleteGreenhouse(greenhouse._id),
+                        },
+                      ],
+                    );
+                  }}
+                >
+                  <Icon name="delete" size={20} color="#FF4444" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          <View style={styles.readingsContainer}>
+            <View style={styles.readingItem}>
+              <Icon name="thermometer" size={24} color="#333" />
+              <Text style={styles.readingValue}>
+                {greenhouseData.temperature ? `${greenhouseData.temperature}°C` : 'N/A'}
+              </Text>
             </View>
-          )}
+            <View style={styles.readingItem}>
+              <Icon name="water-percent" size={24} color="#999" />
+              <Text style={styles.readingValue}>
+                {greenhouseData.humidity ? `${greenhouseData.humidity}%` : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.readingItem}>
+              <Icon name="water" size={24} color="#999" />
+              <Text style={styles.readingValue}>
+                {greenhouseData.soilMoisture ? 
+                  (greenhouseData.soilMoisture > 700 ? 'Dry' : 
+                   greenhouseData.soilMoisture > 300 ? 'Moist' : 'Wet') 
+                  : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.readingItem}>
+              <Icon name="lightbulb" size={24} color="#999" />
+              <Text style={styles.readingValue}>
+                {greenhouseData.light ? `${greenhouseData.light}lux` : 'N/A'}
+              </Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.readingsContainer}>
-          <View style={styles.readingItem}>
-            <Icon name="white-balance-sunny" size={24} color="#333" />
-            <Text style={styles.readingValue}>59%</Text>
-          </View>
-          <View style={styles.readingItem}>
-            <Icon name="thermometer" size={24} color="#333" />
-            <Text style={styles.readingValue}>30°C</Text>
-          </View>
-          <View style={styles.readingItem}>
-            <Icon name="water-percent" size={24} color="#999" />
-            <Text style={styles.readingValue}>Off</Text>
-          </View>
-          <View style={styles.readingItem}>
-            <Icon name="waves" size={24} color="#999" />
-            <Text style={styles.readingValue}>Off</Text>
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   // main render function
   return (

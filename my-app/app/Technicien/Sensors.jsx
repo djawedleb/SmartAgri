@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Picker } from '@react-native-picker/picker';
@@ -19,6 +19,25 @@ export default function Sensors() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [editingBoard, setEditingBoard] = useState(null);
   const [connectionSensorData, setConnectionSensorData] = useState(null);
+
+  useEffect(() => {
+    loadBoards();
+  }, []);
+
+  const loadBoards = async () => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/GetArduinoBoards`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch boards');
+      }
+      const data = await response.json();
+      setBoards(data);
+    } catch (error) {
+      console.error('Error loading boards:', error);
+      Alert.alert('Error', 'Failed to load Arduino boards');
+    }
+  };
 
   const handleAddSensor = () => {
     setIsModalVisible(true);
@@ -64,17 +83,26 @@ export default function Sensors() {
     }
 
     try {
-      // Add the new board to the state
-      const newBoard = {
-        id: Date.now(), // temporary ID, should come from backend
-        name: arduinoName,
-        ipAddress: ipAddress,
-        greenhouseId: selectedGreenhouse,
-        greenhouseName: greenhouses.find(g => g._id === selectedGreenhouse)?.Name || 'Unknown',
-        status: 'active'
-      };
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/AddArduinoBoard`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: arduinoName,
+          ipAddress: ipAddress,
+          greenhouseId: selectedGreenhouse,
+          greenhouseName: greenhouses.find(g => g._id === selectedGreenhouse)?.Name || 'Unknown'
+        }),
+      });
 
-      setBoards(prevBoards => [...prevBoards, newBoard]);
+      if (!response.ok) {
+        throw new Error('Failed to add board');
+      }
+
+      const data = await response.json();
+      setBoards(prevBoards => [...prevBoards, data.board]);
       
       Alert.alert('Success', 'Arduino board added successfully');
       setIsModalVisible(false);
@@ -83,19 +111,34 @@ export default function Sensors() {
       setIpAddress('');
       setSelectedGreenhouse('');
       setIsConnected(false);
-      setGreenhouses([]);
+      setConnectionSensorData(null);
     } catch (error) {
+      console.error('Error adding board:', error);
       Alert.alert('Error', 'Failed to add Arduino board');
     }
   };
 
-  const handleEditBoard = (boardId) => {
-    const board = boards.find(b => b.id === boardId);
+  const handleEditBoard = async (boardId) => {
+    const board = boards.find(b => b._id === boardId);
     if (board) {
-      setEditingBoard(board);
-      setArduinoName(board.name);
-      setSelectedGreenhouse(board.greenhouseId);
-      setIsEditModalVisible(true);
+      try {
+        // Fetch greenhouses when opening edit modal
+        const baseUrl = getBaseUrl();
+        const response = await fetch(`${baseUrl}/GetGreenhouses`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch greenhouses');
+        }
+        const greenhouseData = await response.json();
+        setGreenhouses(greenhouseData);
+
+        setEditingBoard(board);
+        setArduinoName(board.name);
+        setSelectedGreenhouse(board.greenhouseId);
+        setIsEditModalVisible(true);
+      } catch (error) {
+        console.error('Error fetching greenhouses:', error);
+        Alert.alert('Error', 'Failed to load greenhouses');
+      }
     }
   };
 
@@ -106,27 +149,27 @@ export default function Sensors() {
     }
 
     try {
-      // Here you would make an API call to update the Arduino board
-      // For example:
-      // const response = await fetch(`/api/arduino-boards/${editingBoard.id}`, {
-      //   method: 'PUT',
-      //   body: JSON.stringify({
-      //     name: arduinoName,
-      //     greenhouseId: selectedGreenhouse
-      //   })
-      // });
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/UpdateArduinoBoard/${editingBoard._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: arduinoName,
+          greenhouseId: selectedGreenhouse,
+          greenhouseName: greenhouses.find(g => g._id === selectedGreenhouse)?.Name || 'Unknown'
+        }),
+      });
 
-      // Update the board in the state
+      if (!response.ok) {
+        throw new Error('Failed to update board');
+      }
+
+      const data = await response.json();
       setBoards(prevBoards => 
         prevBoards.map(board => 
-          board.id === editingBoard.id 
-            ? {
-                ...board,
-                name: arduinoName,
-                greenhouseId: selectedGreenhouse,
-                greenhouseName: greenhouses.find(g => g._id === selectedGreenhouse)?.Name || 'Unknown'
-              }
-            : board
+          board._id === editingBoard._id ? data.board : board
         )
       );
 
@@ -137,11 +180,12 @@ export default function Sensors() {
       setSelectedGreenhouse('');
       setEditingBoard(null);
     } catch (error) {
+      console.error('Error updating board:', error);
       Alert.alert('Error', 'Failed to update Arduino board');
     }
   };
 
-  const handleDeleteBoard = (boardId) => {
+  const handleDeleteBoard = async (boardId) => {
     Alert.alert(
       'Delete Board',
       'Are you sure you want to delete this Arduino board?',
@@ -152,9 +196,23 @@ export default function Sensors() {
         },
         {
           text: 'Delete',
-          onPress: () => {
-            setBoards(prevBoards => prevBoards.filter(board => board.id !== boardId));
-            Alert.alert('Success', 'Arduino board deleted successfully');
+          onPress: async () => {
+            try {
+              const baseUrl = getBaseUrl();
+              const response = await fetch(`${baseUrl}/DeleteArduinoBoard/${boardId}`, {
+                method: 'DELETE',
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to delete board');
+              }
+
+              setBoards(prevBoards => prevBoards.filter(board => board._id !== boardId));
+              Alert.alert('Success', 'Arduino board deleted successfully');
+            } catch (error) {
+              console.error('Error deleting board:', error);
+              Alert.alert('Error', 'Failed to delete Arduino board');
+            }
           },
           style: 'destructive',
         },
@@ -202,6 +260,13 @@ export default function Sensors() {
     } finally {
       setIsLoadingData(false);
     }
+  };
+
+  // Add this function before the return statement
+  const getSoilMoistureStatus = (value) => {
+    if (value > 700) return "Dry";
+    if (value > 300) return "Moist";
+    return "Wet";
   };
 
   return (
@@ -258,7 +323,7 @@ export default function Sensors() {
                           styles.editButton,
                           pressed && styles.buttonPressed
                         ]}
-                        onPress={() => handleEditBoard(board.id)}
+                        onPress={() => handleEditBoard(board._id)}
                       >
                         <Icon name="pencil" size={22} color="white" />
                       </Pressable>
@@ -268,7 +333,7 @@ export default function Sensors() {
                           styles.deleteButton,
                           pressed && styles.buttonPressed
                         ]}
-                        onPress={() => handleDeleteBoard(board.id)}
+                        onPress={() => handleDeleteBoard(board._id)}
                       >
                         <Icon name="delete" size={22} color="white" />
                       </Pressable>
@@ -292,21 +357,14 @@ export default function Sensors() {
                       </View>
                     ) : sensorData[board.id] ? (
                       <View style={styles.sensorsList}>
-                        {Object.entries(sensorData[board.id]).map(([sensorName, value]) => (
-                          <View key={sensorName} style={styles.sensorItem}>
+                        {/* Temperature Sensor */}
+                        {sensorData[board.id].temperature !== undefined && (
+                          <View style={styles.sensorItem}>
                             <View style={styles.sensorInfo}>
-                              <Icon 
-                                name={getSensorIcon(sensorName)} 
-                                size={24} 
-                                color="#0d986a" 
-                              />
+                              <Icon name="thermometer" size={24} color="#0d986a" />
                               <View>
-                                <Text style={styles.sensorName}>
-                                  {formatSensorName(sensorName)}
-                                </Text>
-                                <Text style={styles.sensorValue}>
-                                  {formatSensorValue(sensorName, value)}
-                                </Text>
+                                <Text style={styles.sensorName}>Temperature</Text>
+                                <Text style={styles.sensorValue}>{sensorData[board.id].temperature}°C</Text>
                               </View>
                             </View>
                             <View style={styles.sensorStatus}>
@@ -314,7 +372,48 @@ export default function Sensors() {
                               <Text style={styles.sensorStatusText}>Active</Text>
                             </View>
                           </View>
-                        ))}
+                        )}
+
+                        {/* Humidity Sensor */}
+                        {sensorData[board.id].humidity !== undefined && (
+                          <View style={styles.sensorItem}>
+                            <View style={styles.sensorInfo}>
+                              <Icon name="water-percent" size={24} color="#0d986a" />
+                              <View>
+                                <Text style={styles.sensorName}>Humidity</Text>
+                                <Text style={styles.sensorValue}>{sensorData[board.id].humidity}%</Text>
+                              </View>
+                            </View>
+                            <View style={styles.sensorStatus}>
+                              <Icon name="circle" size={8} color="#0d986a" />
+                              <Text style={styles.sensorStatusText}>Active</Text>
+                            </View>
+                          </View>
+                        )}
+
+                        {/* Soil Moisture Sensor */}
+                        {sensorData[board.id].soilMoisture !== undefined && (
+                          <View style={styles.sensorItem}>
+                            <View style={styles.sensorInfo}>
+                              <Icon name="water" size={24} color="#0d986a" />
+                              <View>
+                                <Text style={styles.sensorName}>Soil Moisture</Text>
+                                <View style={styles.soilMoistureContainer}>
+                                  <Text style={styles.soilMoistureStatus}>
+                                    {getSoilMoistureStatus(sensorData[board.id].soilMoisture)}
+                                  </Text>
+                                  <Text style={styles.sensorValue}>
+                                    ({sensorData[board.id].soilMoisture})
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+                            <View style={styles.sensorStatus}>
+                              <Icon name="circle" size={8} color="#0d986a" />
+                              <Text style={styles.sensorStatusText}>Active</Text>
+                            </View>
+                          </View>
+                        )}
                       </View>
                     ) : (
                       <View style={styles.noData}>
@@ -529,7 +628,7 @@ const formatSensorValue = (sensorName, value) => {
   const units = {
     temperature: '°C',
     humidity: '%',
-    soilMoisture: '%',
+    soilMoisture: '',
     light: 'lux',
     ph: 'pH',
   };
@@ -976,5 +1075,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
     marginTop: 2,
+  },
+  soilMoistureContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  soilMoistureStatus: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
   },
 }); 

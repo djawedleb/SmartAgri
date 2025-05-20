@@ -117,6 +117,20 @@ const AnalysisHistorySchema = new mongoose.Schema({
 
 const AnalysisHistory = mongoose.model("AnalysisHistory", AnalysisHistorySchema);
 
+
+const ArduinoBoardSchema = new mongoose.Schema({
+  name: String,
+  ipAddress: String,
+  greenhouseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Greenhouse' },
+  greenhouseName: String,
+  status: {
+    type: String,
+    default: 'active'
+  }
+});
+
+const ArduinoBoard = mongoose.model("ArduinoBoard", ArduinoBoardSchema);
+
 // to search the user and allow him to login, from the explore page handlesubmit function//
 app.post("/exploreUser", async function(req, res){
     try {
@@ -497,12 +511,17 @@ app.post("/DeleteGreenhouse", async (req, res) => {
     await Plant.deleteMany({ Greenhouse: id });
     console.log(`Deleted ${plants.length} plants associated with greenhouse`);
 
+    // Delete all associated Arduino boards
+    const deletedBoards = await ArduinoBoard.deleteMany({ greenhouseId: id });
+    console.log(`Deleted ${deletedBoards.deletedCount} Arduino boards associated with greenhouse`);
+
     // Delete the greenhouse
     const deletedGreenhouse = await Greenhouse.findByIdAndDelete(id);
     
     res.json({ 
-      message: 'Greenhouse and associated plants deleted successfully',
-      deletedPlantsCount: plants.length
+      message: 'Greenhouse, associated plants, and Arduino boards deleted successfully',
+      deletedPlantsCount: plants.length,
+      deletedBoardsCount: deletedBoards.deletedCount
     });
   } catch (error) {
     console.error('Error deleting greenhouse:', error);
@@ -864,6 +883,7 @@ setInterval(async () => {
   try {
     const response = await axios.get(`${ESP_IP}/data`);
     console.log("Sensor data:", response.data);
+    console.log(response.data.temperature);
     // You can store or process it here as needed
   } catch (err) {
     console.error("Failed to fetch from ESP:", err.message);
@@ -884,5 +904,112 @@ app.get("/arduino-data/:ipAddress", async (req, res) => {
       error: 'Failed to fetch sensor data',
       message: error.message
     });
+  }
+});
+
+
+// Add these endpoints after your other endpoints
+
+// Endpoint to save a new Arduino board
+app.post("/AddArduinoBoard", async (req, res) => {
+  try {
+    const { name, ipAddress, greenhouseId, greenhouseName } = req.body;
+    
+    const newBoard = new ArduinoBoard({
+      name,
+      ipAddress,
+      greenhouseId,
+      greenhouseName
+    });
+
+    await newBoard.save();
+    res.json({ 
+      message: "Arduino board added successfully", 
+      board: newBoard 
+    });
+  } catch (error) {
+    console.error('Error adding Arduino board:', error);
+    res.status(500).json({ error: 'Failed to add Arduino board' });
+  }
+});
+
+// Endpoint to get all Arduino boards
+app.get("/GetArduinoBoards", async (req, res) => {
+  try {
+    const boards = await ArduinoBoard.find({});
+    res.json(boards);
+  } catch (error) {
+    console.error('Error fetching Arduino boards:', error);
+    res.status(500).json({ error: 'Failed to fetch Arduino boards' });
+  }
+});
+
+// Endpoint to update an Arduino board
+app.put("/UpdateArduinoBoard/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, greenhouseId, greenhouseName } = req.body;
+
+    const updatedBoard = await ArduinoBoard.findByIdAndUpdate(
+      id,
+      { 
+        name,
+        greenhouseId,
+        greenhouseName
+      },
+      { new: true }
+    );
+
+    if (!updatedBoard) {
+      return res.status(404).json({ message: 'Arduino board not found' });
+    }
+
+    res.json({ 
+      message: "Arduino board updated successfully", 
+      board: updatedBoard 
+    });
+  } catch (error) {
+    console.error('Error updating Arduino board:', error);
+    res.status(500).json({ error: 'Failed to update Arduino board' });
+  }
+});
+
+// Endpoint to delete an Arduino board
+app.delete("/DeleteArduinoBoard/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedBoard = await ArduinoBoard.findByIdAndDelete(id);
+    
+    if (!deletedBoard) {
+      return res.status(404).json({ message: 'Arduino board not found' });
+    }
+
+    res.json({ 
+      message: 'Arduino board deleted successfully',
+      deletedBoard 
+    });
+  } catch (error) {
+    console.error('Error deleting Arduino board:', error);
+    res.status(500).json({ error: 'Failed to delete Arduino board' });
+  }
+});
+
+// Endpoint to update all Arduino boards for a greenhouse
+app.put("/UpdateArduinoBoardsByGreenhouse", async (req, res) => {
+  try {
+    const { greenhouseId, greenhouseName } = req.body;
+    
+    const updatedBoards = await ArduinoBoard.updateMany(
+      { greenhouseId: greenhouseId },
+      { $set: { greenhouseName: greenhouseName } }
+    );
+
+    res.json({ 
+      message: "Arduino boards updated successfully",
+      updatedCount: updatedBoards.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error updating Arduino boards:', error);
+    res.status(500).json({ error: 'Failed to update Arduino boards' });
   }
 });

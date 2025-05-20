@@ -156,14 +156,62 @@ const PlantHealth = () => {
 
   const [showCustomFilterModal, setShowCustomFilterModal] = useState(false);
 
-  //to display the added plants
+  // Add new state variables
+  const [arduinoBoards, setArduinoBoards] = useState([]);
+  const [sensorData, setSensorData] = useState({});
+
+  // Add function to fetch Arduino boards
+  const fetchArduinoBoards = async () => {
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/GetArduinoBoards`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch Arduino boards');
+      }
+      const data = await response.json();
+      setArduinoBoards(data);
+    } catch (error) {
+      console.error('Error fetching Arduino boards:', error);
+    }
+  };
+
+  // Add function to fetch sensor data
+  const fetchSensorData = async (greenhouseId) => {
+    try {
+      const board = arduinoBoards.find(b => b.greenhouseId === greenhouseId);
+      if (!board) {
+        console.log('No Arduino board found for greenhouse:', greenhouseId);
+        return;
+      }
+
+      const baseUrl = getBaseUrl();
+      console.log('Fetching sensor data for board:', board.ipAddress);
+      const response = await fetch(`${baseUrl}/arduino-data/${board.ipAddress}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch sensor data: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Received sensor data:', data);
+      
+      setSensorData(prev => ({
+        ...prev,
+        [greenhouseId]: data
+      }));
+    } catch (error) {
+      console.error('Error fetching sensor data:', error);
+      // Don't throw the error, just log it and continue
+    }
+  };
+
+  // Update useEffect to include Arduino board fetching
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        // First fetch greenhouses
         await fetchGreenhouses();
-        // Then refresh plants which will use the fetched greenhouses
+        await fetchArduinoBoards();
         await refreshPlants();
       } catch (error) {
         console.error('Error loading data:', error);
@@ -176,13 +224,22 @@ const PlantHealth = () => {
     loadData();
   }, []);
 
-  // Add a separate useEffect to monitor greenhouses state
+  // Add polling for sensor data
   useEffect(() => {
-    if (greenhouses.length > 0) {
-      console.log('Greenhouses loaded:', greenhouses.map(g => g.Name));
-      setIsGreenhousesLoaded(true);
-    }
-  }, [greenhouses]);
+    if (greenhouses.length === 0 || arduinoBoards.length === 0) return;
+
+    console.log('Starting sensor data polling');
+    const interval = setInterval(() => {
+      greenhouses.forEach(greenhouse => {
+        fetchSensorData(greenhouse._id);
+      });
+    }, 2000); // Poll every 30 seconds
+
+    return () => {
+      console.log('Cleaning up sensor data polling');
+      clearInterval(interval);
+    };
+  }, [greenhouses, arduinoBoards]);
 
   // Request permissions for image picker
   useEffect(() => {
@@ -847,10 +904,7 @@ const handleEditPlant = (plant) => {
               <View style={styles.detailsReadings}>
                 <Text style={styles.detailsSectionTitle}>Current Readings</Text>
                 <View style={styles.detailsGrid}>
-                  {renderReadingItem('white-balance-sunny', 'N/A', 'Light')}
-                  {renderReadingItem('thermometer', 'N/A', 'Temperature')}
-                  {renderReadingItem('water-percent', 'N/A', 'Humidity')}
-                  {renderReadingItem('water', 'N/A', 'Water')}
+                  {renderReadingsGrid(selectedPlant.Greenhouse)}
                 </View>
               </View>
 
@@ -1223,15 +1277,30 @@ const handleEditPlant = (plant) => {
     }
   };
 
-  // Update the readings grid to use default values
-  const renderReadingsGrid = (greenhouseId) => (
-    <View style={styles.readingsGrid}>
-      {renderReadingItem('white-balance-sunny', 'N/A', 'Light')}
-      {renderReadingItem('thermometer', 'N/A', 'Temperature')}
-      {renderReadingItem('water-percent', 'N/A', 'Humidity')}
-      {renderReadingItem('water', 'N/A', 'Water')}
-    </View>
-  );
+  // Update the readings grid to use real sensor data
+  const renderReadingsGrid = (greenhouseId) => {
+    const greenhouseData = sensorData[greenhouseId] || {};
+    
+    return (
+      <View style={styles.readingsGrid}>
+        {renderReadingItem('white-balance-sunny', 
+          greenhouseData.light ? `${greenhouseData.light}lux` : 'N/A', 
+          'Light')}
+        {renderReadingItem('thermometer', 
+          greenhouseData.temperature ? `${greenhouseData.temperature}°C` : 'N/A', 
+          'Temperature')}
+        {renderReadingItem('water-percent', 
+          greenhouseData.humidity ? `${greenhouseData.humidity}%` : 'N/A', 
+          'Humidity')}
+        {renderReadingItem('water', 
+          greenhouseData.soilMoisture ? 
+            (greenhouseData.soilMoisture > 700 ? 'Dry' : 
+             greenhouseData.soilMoisture > 300 ? 'Moist' : 'Wet') 
+            : 'N/A', 
+          'Water')}
+      </View>
+    );
+  };
 
   // Update the plant card to use the new readings grid
   const renderPlantCard = (plant) => (
@@ -1942,104 +2011,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    width: '90%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  modalLabel: {
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  numberInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    marginRight: 10,
-  },
-  unitPicker: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-  },
-  cancelButton: {
-    backgroundColor: '#ff4444',
-    padding: 15,
-    borderRadius: 5,
-    width: '45%',
-  },
-  saveButton: {
-    backgroundColor: '#0d986a',
-    padding: 15,
-    borderRadius: 5,
-    width: '45%',
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 16,
-  },
-  colon: {
-    fontSize: 16,
-    color: '#333',
-    marginRight: 10,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  greenhouseFilter: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    width: 150,
-    backgroundColor: '#f1f9f5',
-    borderRadius: 20,
-    padding: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  greenhousePicker: {
-    width: '100%',
-    height: 36,
-    backgroundColor: 'transparent',
-  },
-  filterButtonActive: {
-    backgroundColor: '#0d986a',
-  },
   filterIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2112,18 +2083,6 @@ const styles = StyleSheet.create({
     color: '#0d986a',
     fontSize: 16,
     fontWeight: '500',
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   sensorDataContainer: {
     marginBottom: 20,
