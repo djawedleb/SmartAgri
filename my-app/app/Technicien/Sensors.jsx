@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Picker } from '@react-native-picker/picker';
+import { getBaseUrl } from '../../config';
 
 export default function Sensors() {
   const [boards, setBoards] = useState([]);
@@ -31,25 +32,25 @@ export default function Sensors() {
 
     setIsConnecting(true);
     try {
-      // Simulating API call for now
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Get mock sensor data
-      const mockData = {
-        temperature: (20 + Math.random() * 15).toFixed(1), // 20-35°C
-        humidity: (40 + Math.random() * 40).toFixed(1),    // 40-80%
-        soilMoisture: (30 + Math.random() * 50).toFixed(1) // 30-80%
-      };
-      setConnectionSensorData(mockData);
-      
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/arduino-data/${ipAddress}`);
+      if (!response.ok) {
+        throw new Error('Failed to connect to Arduino');
+      }
+      const data = await response.json();
+      setConnectionSensorData(data);
       setIsConnected(true);
-      // Simulate fetching greenhouses
-      setGreenhouses([
-        { id: 1, name: 'Greenhouse 1' },
-        { id: 2, name: 'Greenhouse 2' },
-        { id: 3, name: 'Greenhouse 3' },
-      ]);
+      
+      // Fetch greenhouses for selection
+      const greenhouseResponse = await fetch(`${baseUrl}/GetGreenhouses`);
+      if (!greenhouseResponse.ok) {
+        throw new Error('Failed to fetch greenhouses');
+      }
+      const greenhouseData = await greenhouseResponse.json();
+      console.log('Fetched greenhouses:', greenhouseData); // Debug log
+      setGreenhouses(greenhouseData);
     } catch (error) {
+      console.error('Connection error:', error);
       Alert.alert('Connection Error', 'Failed to connect to Arduino. Please check the IP address and try again.');
     } finally {
       setIsConnecting(false);
@@ -63,24 +64,13 @@ export default function Sensors() {
     }
 
     try {
-      // Here you would make an API call to save the Arduino board
-      // For example:
-      // const response = await fetch('/api/arduino-boards', {
-      //   method: 'POST',
-      //   body: JSON.stringify({
-      //     name: arduinoName,
-      //     ipAddress,
-      //     greenhouseId: selectedGreenhouse
-      //   })
-      // });
-
       // Add the new board to the state
       const newBoard = {
         id: Date.now(), // temporary ID, should come from backend
         name: arduinoName,
         ipAddress: ipAddress,
         greenhouseId: selectedGreenhouse,
-        greenhouseName: greenhouses.find(g => g.id === selectedGreenhouse)?.name || 'Unknown',
+        greenhouseName: greenhouses.find(g => g._id === selectedGreenhouse)?.Name || 'Unknown',
         status: 'active'
       };
 
@@ -134,7 +124,7 @@ export default function Sensors() {
                 ...board,
                 name: arduinoName,
                 greenhouseId: selectedGreenhouse,
-                greenhouseName: greenhouses.find(g => g.id === selectedGreenhouse)?.name || 'Unknown'
+                greenhouseName: greenhouses.find(g => g._id === selectedGreenhouse)?.Name || 'Unknown'
               }
             : board
         )
@@ -199,7 +189,11 @@ export default function Sensors() {
   const fetchSensorData = async (ipAddress) => {
     try {
       setIsLoadingData(true);
-      const response = await fetch(`http://${ipAddress}/sensors`);
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/arduino-data/${ipAddress}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch sensor data');
+      }
       const data = await response.json();
       return data;
     } catch (error) {
@@ -414,9 +408,9 @@ export default function Sensors() {
                     <Picker.Item label="Select a greenhouse" value="" />
                     {greenhouses.map((greenhouse) => (
                       <Picker.Item 
-                        key={greenhouse.id} 
-                        label={greenhouse.name} 
-                        value={greenhouse.id} 
+                        key={greenhouse._id} 
+                        label={greenhouse.Name} 
+                        value={greenhouse._id} 
                       />
                     ))}
                   </Picker>
@@ -478,9 +472,9 @@ export default function Sensors() {
                 <Picker.Item label="Select a greenhouse" value="" />
                 {greenhouses.map((greenhouse) => (
                   <Picker.Item 
-                    key={greenhouse.id} 
-                    label={greenhouse.name} 
-                    value={greenhouse.id} 
+                    key={greenhouse._id} 
+                    label={greenhouse.Name} 
+                    value={greenhouse._id} 
                   />
                 ))}
               </Picker>

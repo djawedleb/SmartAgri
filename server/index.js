@@ -855,3 +855,34 @@ app.delete("/clearAnalysisHistory", async (req, res) => {
     res.status(500).json({ error: 'Failed to clear analysis history' });
   }
 });
+
+// Replace this with ESP8266's IP address
+const ESP_IP = "http://192.168.1.72"; 
+
+// Polling function to get sensor data
+setInterval(async () => {
+  try {
+    const response = await axios.get(`${ESP_IP}/data`);
+    console.log("Sensor data:", response.data);
+    // You can store or process it here as needed
+  } catch (err) {
+    console.error("Failed to fetch from ESP:", err.message);
+  }
+}, 100000); // 1 second
+
+// Endpoint to fetch sensor data from Arduino
+app.get("/arduino-data/:ipAddress", async (req, res) => {
+  try {
+    const { ipAddress } = req.params;
+    const response = await axios.get(`http://${ipAddress}/data`, {
+      timeout: 5000 // 5 second timeout
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching Arduino data:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch sensor data',
+      message: error.message
+    });
+  }
+});
