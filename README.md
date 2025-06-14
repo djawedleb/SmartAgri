@@ -43,7 +43,7 @@ SmartAgri/
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/SmartAgri.git
+git clone https://github.com/djawedleb/SmartAgri.git
 cd SmartAgri
 ```
 
@@ -115,7 +115,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👥 Authors
 
-- Your Name - Initial work
+- djawedleb - Initial work
 
 ## 🙏 Acknowledgments
 
