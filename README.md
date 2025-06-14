@@ -115,7 +115,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👥 Authors
 
-- djawedleb - Initial work
+- [Djawed Lebaili](https://github.com/djawedleb)
+- [Salah Nahal AbdelMouiz](https://github.com/SaNa-nhl11)
 
 ## 🙏 Acknowledgments
 
